@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState, useEffect, type ReactNode } from 'react';
 
 interface BorderGlowProps {
+    onClick?: () => void;
     children?: ReactNode;
     className?: string;
     edgeSensitivity?: number;
@@ -71,6 +72,7 @@ function buildMeshGradients(colors: string[]): string[] {
 }
 
 const BorderGlow: React.FC<BorderGlowProps> = ({
+                                                   onClick,
                                                    children,
                                                    className = '',
                                                    edgeSensitivity = 30,
@@ -167,6 +169,7 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
             onPointerMove={handlePointerMove}
             onPointerEnter={() => setIsHovered(true)}
             onPointerLeave={() => setIsHovered(false)}
+            onClick={onClick}
             className={`relative grid isolate border border-white/15 ${className}`}
             style={{
                 background: backgroundColor,

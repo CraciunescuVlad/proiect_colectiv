@@ -10,7 +10,7 @@ const cards = [
     {
         title: "Catre Harta",
         description: "Apasa pentru a vedea harta",
-        route: "/harta",
+        route: "/map",
     },
 ];
 
