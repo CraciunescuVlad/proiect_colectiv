@@ -1,9 +1,9 @@
 import type {RouteObject} from "react-router-dom";
-import Map from "../components/Map/Map";
+import MapPage from "../components/Map/MapPage.tsx";
 
 const mapRoute: RouteObject = {
     path: "/map",
-    element: <Map />,
+    element: <MapPage />,
 };
 
 export default mapRoute;
