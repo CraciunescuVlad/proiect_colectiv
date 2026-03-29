@@ -30,34 +30,53 @@ const Login = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center h-screen bg-[#060010]">
-            <h1 className="text-white text-3xl font-bold mb-8">Welcome back</h1>
+        <div className="flex h-screen bg-[#060010]">
 
-            <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-white/10 text-white placeholder-white/30 border border-white/20 rounded-lg px-4 py-2 w-72 mb-3 outline-none focus:border-white/50"
-            />
-            <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-white/10 text-white placeholder-white/30 border border-white/20 rounded-lg px-4 py-2 w-72 mb-4 outline-none focus:border-white/50"
-            />
+            {/* Left side — 40% — login form */}
+            <div className="w-[40%] flex flex-col items-center justify-center px-12 border-r border-white/10">
+                <div className="w-full max-w-sm">
+                    <h1 className="text-white text-3xl font-bold mb-2">Welcome back</h1>
+                    <p className="text-white/40 text-sm mb-8">Sign in to your account</p>
 
-            {error && (
-                <p className="text-red-400 text-sm mb-4">{error}</p>
-            )}
+                    <input
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="bg-white/10 text-white placeholder-white/30 border border-white/20 rounded-lg px-4 py-2 w-full mb-3 outline-none focus:border-white/50"
+                    />
+                    <input
+                        type="password"
+                        placeholder="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="bg-white/10 text-white placeholder-white/30 border border-white/20 rounded-lg px-4 py-2 w-full mb-4 outline-none focus:border-white/50"
+                    />
 
-            <button
-                onClick={handleLogin}
-                className="bg-white text-gray-900 font-medium px-6 py-2 rounded-lg w-72 hover:bg-gray-100 transition-colors"
-            >
-                Login
-            </button>
+                    {error && (
+                        <p className="text-red-400 text-sm mb-4">{error}</p>
+                    )}
+
+                    <button
+                        onClick={handleLogin}
+                        className="bg-white text-gray-900 font-medium px-6 py-2 rounded-lg w-full hover:bg-gray-100 transition-colors"
+                    >
+                        Login
+                    </button>
+                </div>
+            </div>
+
+            {/* Right side — 60% — decorative panel */}
+            <div className="w-[60%] flex flex-col items-center justify-center bg-[#0a0015] relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-blue-900/20" />
+                <div className="relative z-10 text-center px-12">
+                    <h2 className="text-white text-4xl font-bold mb-4">Telecom Outage Heatmap</h2>
+                    <p className="text-white/40 text-lg max-w-md">
+                        Monitor and track telecom incidents across Romania in real time.
+                    </p>
+                </div>
+            </div>
+
         </div>
     );
 };
