@@ -1,0 +1,192 @@
+export interface Location {
+    id: number;
+    name: string;
+    coordinates: [number, number]; // [longitude, latitude]
+    severity: "critical" | "medium" | "low";
+    description: string;
+}
+
+export const locations: Location[] = [
+    {
+        id: 1,
+        name: "Bucharest Incident",
+        coordinates: [26.1025, 44.4268],
+        severity: "critical",
+        description: "Major outage in Bucharest area",
+    },
+    {
+        id: 2,
+        name: "Cluj-Napoca Incident",
+        coordinates: [23.5987, 46.7712],
+        severity: "medium",
+        description: "Partial outage in Cluj",
+    },
+    {
+        id: 3,
+        name: "Timisoara Incident",
+        coordinates: [21.2087, 45.7489],
+        severity: "low",
+        description: "Minor disruption in Timisoara",
+    },
+    {
+        id: 4,
+        name: "Iasi Incident",
+        coordinates: [27.5875, 47.1585],
+        severity: "critical",
+        description: "Critical failure in Iasi",
+    },
+    {
+        id: 5,
+        name: "Constanta Incident",
+        coordinates: [28.6348, 44.1598],
+        severity: "medium",
+        description: "Outage near Constanta port",
+    },
+    {
+        id: 6,
+        name: "Brasov Incident",
+        coordinates: [25.5887, 45.6427],
+        severity: "critical",
+        description: "Outage in Brasov area",
+    },
+    {
+        id: 7,
+        name: "Sibiu Incident",
+        coordinates: [24.1503, 45.7983],
+        severity: "medium",
+        description: "Disruption in Sibiu",
+    },
+    {
+        id: 8,
+        name: "Craiova Incident",
+        coordinates: [23.7949, 44.3302],
+        severity: "low",
+        description: "Minor outage in Craiova",
+    },
+    {
+        id: 9,
+        name: "Galati Incident",
+        coordinates: [28.0457, 45.4353],
+        severity: "critical",
+        description: "Critical failure in Galati",
+    },
+    {
+        id: 10,
+        name: "Ploiesti Incident",
+        coordinates: [26.0226, 44.9459],
+        severity: "medium",
+        description: "Outage in Ploiesti",
+    },
+    {
+        id: 11,
+        name: "Oradea Incident",
+        coordinates: [21.9189, 47.0722],
+        severity: "low",
+        description: "Minor disruption in Oradea",
+    },
+    {
+        id: 12,
+        name: "Bacau Incident",
+        coordinates: [26.9146, 46.5670],
+        severity: "critical",
+        description: "Major outage in Bacau",
+    },
+    {
+        id: 13,
+        name: "Arad Incident",
+        coordinates: [21.3123, 46.1866],
+        severity: "medium",
+        description: "Partial outage in Arad",
+    },
+    {
+        id: 14,
+        name: "Pitesti Incident",
+        coordinates: [24.8693, 44.8565],
+        severity: "low",
+        description: "Minor outage in Pitesti",
+    },
+    {
+        id: 15,
+        name: "Targu Mures Incident",
+        coordinates: [24.5573, 46.5386],
+        severity: "critical",
+        description: "Critical failure in Targu Mures",
+    },
+    {
+        id: 16,
+        name: "Baia Mare Incident",
+        coordinates: [23.5765, 47.6567],
+        severity: "medium",
+        description: "Disruption in Baia Mare",
+    },
+    {
+        id: 17,
+        name: "Buzau Incident",
+        coordinates: [26.8197, 45.1502],
+        severity: "low",
+        description: "Minor outage in Buzau",
+    },
+    {
+        id: 18,
+        name: "Satu Mare Incident",
+        coordinates: [22.8853, 47.7926],
+        severity: "critical",
+        description: "Major outage in Satu Mare",
+    },
+    {
+        id: 19,
+        name: "Ramnicu Valcea Incident",
+        coordinates: [24.3696, 45.0997],
+        severity: "medium",
+        description: "Outage in Ramnicu Valcea",
+    },
+    {
+        id: 20,
+        name: "Drobeta-Turnu Severin Incident",
+        coordinates: [22.6565, 44.6328],
+        severity: "low",
+        description: "Minor disruption in Drobeta",
+    },
+    {
+        id: 21,
+        name: "Suceava Incident",
+        coordinates: [26.2513, 47.6514],
+        severity: "critical",
+        description: "Critical failure in Suceava",
+    },
+    {
+        id: 22,
+        name: "Focsani Incident",
+        coordinates: [27.1868, 45.6964],
+        severity: "medium",
+        description: "Partial outage in Focsani",
+    },
+    {
+        id: 23,
+        name: "Targoviste Incident",
+        coordinates: [25.4567, 44.9247],
+        severity: "low",
+        description: "Minor outage in Targoviste",
+    },
+    {
+        id: 24,
+        name: "Deva Incident",
+        coordinates: [22.8997, 45.8799],
+        severity: "critical",
+        description: "Major outage in Deva",
+    },
+    {
+        id: 25,
+        name: "Alexandria Incident",
+        coordinates: [25.3352, 43.9765],
+        severity: "medium",
+        description: "Disruption in Alexandria",
+    },
+    {
+        id: 26,
+        name: "Targu Jiu Incident",
+        coordinates: [23.2696, 45.0389],
+        severity: "critical",
+        description: "Critical failure in Targu Jiu",
+    }
+];
