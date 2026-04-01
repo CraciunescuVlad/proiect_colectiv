@@ -1,0 +1,101 @@
+id,reason,severity
+001,Open door detected on antenna shelter,3
+002,Intrusion detected inside BTS cabinet,3
+003,Fire alarm triggered in equipment room,3
+004,Flood detected in antenna shelter,3
+005,Vandalism detected — camera alert,3
+006,Power outage — site running on battery backup,3
+007,Battery backup failure — no power redundancy,3
+008,Generator failure — cannot start,3
+009,Complete site down — no radio signal,3
+010,Transmission link down — site isolated,3
+011,All sectors down simultaneously,3
+012,Core network connection lost,3
+013,Equipment overheating — thermal shutdown imminent,3
+014,Air conditioning unit failure — temperature critical,3
+015,Antenna feeder cable cut or disconnected,3
+016,eNodeB/gNodeB hardware failure,3
+017,RRU (Remote Radio Unit) complete failure,3
+018,BBU (Baseband Unit) failure,3
+019,5G NR carrier completely down,3
+020,Massive MIMO antenna unit failure,3
+021,High VSWR detected — antenna likely damaged,2
+022,Sector coverage degraded (>50% capacity loss),2
+023,High interference detected on sector,2
+024,Transmission link degraded — high packet loss,2
+025,Power supply voltage out of range,2
+026,Battery temperature high,2
+027,Rectifier module failure (partial — others running),2
+028,Shelter temperature above threshold (>45°C),2
+029,Shelter humidity above threshold (>85%),2
+030,Cooling fan failure on equipment,2
+031,GPS/GNSS signal lost — timing reference degraded,2
+032,Clock synchronization failure,2
+033,High RTWP (Received Total Wideband Power),2
+034,Iub interface congestion,2
+035,NodeB software process crash — auto-recovery attempted,2
+036,Call drop rate above threshold (>3%),2
+037,Handover failure rate elevated,2
+038,eNodeB X2 interface failure,2
+039,S1 interface degraded,2
+040,LTE carrier frequency interference,2
+041,Downlink throughput significantly degraded,2
+042,5G beam management failure,2
+043,NSA anchor LTE cell degraded,2
+044,N2/N3 interface latency high,2
+045,Fronthaul link to RRU degraded,2
+046,Remote electrical tilt (RET) not responding,2
+047,Antenna azimuth mismatch detected,2
+048,Fiber transmission bit error rate elevated,2
+049,Microwave link signal level degraded,2
+050,Site access road blocked — maintenance not possible,2
+051,Door left open for more than 30 minutes,1
+052,External light sensor fault,1
+053,Shelter internal light failure,1
+054,Minor battery capacity degradation (<10%),1
+055,Scheduled maintenance window started,1
+056,Software update available for BTS,1
+057,Configuration mismatch detected — non-critical parameter,1
+058,Log file size exceeding threshold on OMC,1
+059,Remote monitoring agent restarted,1
+060,NTP time drift detected (minor),1
+061,Weak GPS signal — still locked,1
+062,Minor VSWR increase — within acceptable range,1
+063,Low traffic load on sector (<5% utilization),1
+064,Scheduled antenna parameter audit due,1
+065,Feeder connector inspection due,1
+066,Shelter door seal degraded — weather risk,1
+067,Air filter on shelter ventilation dirty — cleaning needed,1
+068,Site visited by unauthorized person (badge log),1
+069,Fence perimeter sensor triggered — possible animal,1
+070,Minor interference detected — below threshold,1
+071,Pilot pollution detected in sector,1
+072,Neighbor cell list outdated,1
+073,PCI (Physical Cell ID) conflict detected,1
+074,SON (Self-Organizing Network) optimization triggered,1
+075,Handover parameter sub-optimal — SON adjusting,1
+076,Minor downlink throughput drop (<10%),1
+077,UE connection count low — possible coverage gap,1
+078,5G SSB beam index change detected,1
+079,5G slice QoS parameter drift,1
+080,Fronthaul jitter slightly elevated — within limit,1
+081,Microwave link rain fade event — signal restored,1
+082,Fiber splice loss increasing slowly — monitor,1
+083,Backup configuration file not updated in >7 days,1
+084,Certificate on OMC interface expiring in <30 days,1
+085,IPSec tunnel renegotiated — temporary disruption,1
+086,OAM link latency increased,1
+087,Planned site upgrade scheduled,1
+088,Site energy consumption above monthly average,1
+089,Diesel generator fuel level below 50%,1
+090,Rectifier efficiency drop — within tolerance,1
+091,Anti-climb barrier inspection due,1
+092,Tower lighting (aviation warning light) fault,1
+093,Grounding resistance elevated — inspection needed,1
+094,Lightning protection system check due,1
+095,Shelter paint/coating degradation — corrosion risk,1
+096,CCTV camera offline — non-critical zone,1
+097,Smoke detector battery low,1
+098,Door magnetic contact sensor requires calibration,1
+099,New software version deployed successfully — monitoring,1
+100,Routine KPI report generation delayed,1

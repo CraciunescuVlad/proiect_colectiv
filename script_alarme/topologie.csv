@@ -1,0 +1,111 @@
+id,latitudine,longitudine,oras,adresa
+A001,44.4268,26.1025,București,Strada Victoriei 12
+A002,46.7712,23.6236,Cluj-Napoca,Calea Dorobanților 45
+A003,45.7489,21.2087,Timișoara,Bulevardul Revoluției 8
+A004,47.1585,27.6014,Iași,Strada Palat 3
+A005,44.1598,28.6348,Constanța,Bulevardul Tomis 22
+A006,45.6480,25.6012,Brașov,Strada Republicii 17
+A007,44.9177,26.0125,Ploiești,Bulevardul Independenței 5
+A008,47.0458,21.9189,Oradea,Strada Republicii 10
+A009,45.4348,27.9716,Galați,Strada Domnească 33
+A010,45.2692,27.9574,Brăila,Calea Călărașilor 8
+A011,46.5388,24.5606,Târgu Mureș,Piața Trandafirilor 2
+A012,47.6500,26.2500,Suceava,Strada Ștefan cel Mare 14
+A013,43.8103,25.9652,Alexandria,Strada Libertății 7
+A014,44.2671,23.7948,Craiova,Calea București 21
+A015,45.4333,28.0500,Tulcea,Strada Păcii 4
+A016,46.9706,28.7301,Huși,Strada 1 Decembrie 9
+A017,46.0804,23.5800,Alba Iulia,Bulevardul Revoluției 1989 6
+A018,44.8565,24.8685,Pitești,Strada Victoriei 19
+A019,45.1470,28.9117,Măcin,Strada Eroilor 3
+A020,47.7500,23.5833,Baia Mare,Bulevardul Independenței 11
+A021,46.3592,25.7994,Miercurea Ciuc,Piața Libertății 5
+A022,44.3302,23.2097,Drobeta-Turnu Severin,Bulevardul Carol I 16
+A023,46.2119,24.7963,Sighișoara,Strada Școlii 2
+A024,47.0516,21.9296,Salonta,Calea Aradului 8
+A025,45.8501,24.1499,Sibiu,Piața Mare 1
+A026,45.1500,26.8167,Buzău,Bulevardul Nicolae Bălcescu 12
+A027,46.9159,26.3604,Piatra Neamț,Strada Ștefan cel Mare 7
+A028,44.6166,24.3700,Slatina,Strada Ec. Teodoroiu 9
+A029,43.9000,25.3667,Giurgiu,Bulevardul Mircea cel Bătrân 4
+A030,44.6825,24.8803,Caracal,Strada Antonescu 6
+A031,47.3833,26.9167,Roman,Strada Cuza Vodă 14
+A032,46.8456,29.5948,Cahul,Strada Republicii 5
+A033,44.0180,23.0436,Calafat,Bulevardul 22 Decembrie 8
+A034,46.6321,27.7282,Vaslui,Strada Ștefan cel Mare 11
+A035,46.6128,26.9059,Bacău,Calea Mărășești 20
+A036,45.9000,25.0167,Făgăraș,Bulevardul Unirii 3
+A037,44.6931,22.6578,Orșova,Strada Independenței 7
+A038,45.5000,26.7833,Focșani,Strada Cuza Vodă 18
+A039,47.3553,25.9025,Vatra Dornei,Calea Unirii 2
+A040,46.0780,24.9720,Sărățeni,Strada Principală 1
+A041,44.5209,26.3522,Urziceni,Bulevardul Republicii 4
+A042,44.3568,28.0392,Cernavodă,Strada Oborului 6
+A043,47.9463,22.8876,Satu Mare,Piața Libertății 9
+A044,44.9011,22.3613,Strehaia,Strada Victoriei 3
+A045,45.7500,24.3500,Agnita,Strada Republicii 5
+A046,46.4370,24.3718,Reghin,Bulevardul Unirii 10
+A047,46.6775,23.5592,Dej,Strada 1 Mai 7
+A048,44.5600,26.0556,Urziceni,Strada Garoafelor 12
+A049,47.5000,22.8833,Carei,Calea Careiului 2
+A050,46.5500,26.9167,Moinești,Strada Zorilor 8
+A051,46.1833,27.6667,Tecuci,Strada Republicii 5
+A052,45.6000,27.4333,Adjud,Strada Libertății 11
+A053,45.1333,24.3667,Curtea de Argeș,Strada Victoriei 14
+A054,44.0833,28.4667,Mangalia,Bulevardul Republicii 6
+A055,43.7833,28.5833,Eforie,Strada Florilor 3
+A056,45.3667,28.7167,Isaccea,Strada Dunării 8
+A057,44.7167,26.9833,Urziceni,Strada Ghioceilor 4
+A058,46.2667,24.0333,Blaj,Piața 1848 2
+A059,47.6667,24.7000,Câmpulung Moldovenesc,Calea Bucovinei 9
+A060,46.0833,23.2000,Sebeș,Strada Lucian Blaga 5
+A061,47.1667,22.3667,Marghita,Bulevardul Unirii 3
+A062,47.3667,24.8333,Bistrița,Piața Centrală 7
+A063,44.4500,26.0333,Buftea,Strada Gloriei 6
+A064,44.7000,25.5833,Câmpina,Bulevardul Carol I 13
+A065,46.8833,22.0000,Ineu,Strada Republicii 4
+A066,46.7833,23.1333,Huedin,Calea Moților 8
+A067,44.1167,27.2833,Oltenița,Strada Argeșului 9
+A068,44.6500,24.9667,Costești,Bulevardul Victoriei 2
+A069,45.8667,26.9167,Panciu,Strada Unirii 7
+A070,46.9167,26.0500,Tg. Neamț,Strada Cuza Vodă 5
+A071,47.1333,24.3667,Năsăud,Piața Unirii 3
+A072,44.2333,27.9500,Fetești,Strada Republicii 10
+A073,44.1833,28.3167,Medgidia,Calea București 4
+A074,45.4000,25.0167,Zărnești,Strada Gării 6
+A075,45.8333,25.8500,Rupea,Strada Cetății 2
+A076,46.3833,25.0833,Praid,Strada Minei 5
+A077,45.1500,22.3667,Băile Herculane,Calea Eroilor 8
+A078,46.7833,24.0167,Luduș,Strada Câmpiei 3
+A079,45.4500,23.3667,Hațeg,Strada Republicii 7
+A080,46.0500,25.3500,Sovata,Bulevardul Praid 1
+A081,44.7500,22.9000,Baia de Aramă,Strada Victoriei 4
+A082,45.3833,23.0667,Petroșani,Calea București 12
+A083,45.0667,23.2833,Lupeni,Strada Minelor 6
+A084,44.4333,28.2167,Hârșova,Strada Dunării 9
+A085,43.9167,25.6333,Zimnicea,Piața Libertății 2
+A086,44.0000,26.0333,Bolintin-Vale,Strada Principală 5
+A087,44.9667,24.1167,Bălcești,Strada Unirii 8
+A088,47.2500,25.6500,Fălticeni,Strada Sucevei 3
+A089,47.5333,25.4167,Gura Humorului,Strada Ștefan cel Mare 11
+A090,46.4000,26.9167,Onești,Calea Mărășești 7
+A091,44.5333,26.5167,Slobozia,Bulevardul Matei Basarab 5
+A092,45.8000,25.3667,Întorsura Buzăului,Strada Republicii 2
+A093,44.3667,26.5333,Călărași,Bulevardul Republicii 14
+A094,44.2167,27.5833,Lehliu-Gară,Strada Gării 6
+A095,47.1667,27.0500,Pașcani,Calea Iașilor 9
+A096,45.6667,27.2333,Mărășești,Strada Eroilor 4
+A097,46.1500,21.3167,Lipova,Strada Republicii 7
+A098,46.4167,21.3000,Arad,Bulevardul Revoluției 22
+A099,47.7333,26.6833,Dorohoi,Strada Victoriei 15
+A100,45.4167,27.7333,Tecuci,Strada Independenței 3
+A101,44.4268,26.1025,București,Calea Floreasca 88
+A102,46.7712,23.6236,Cluj-Napoca,Strada Observatorului 32
+A103,45.7489,21.2087,Timișoara,Strada Circumvalațiunii 14
+A104,47.1585,27.6014,Iași,Bulevardul Alexandru cel Bun 51
+A105,44.1598,28.6348,Constanța,Strada Mircea cel Bătrân 9
+A106,45.6480,25.6012,Brașov,Strada Lungă 66
+A107,44.9177,26.0125,Ploiești,Strada Gh. Gr. Cantacuzino 7
+A108,47.0458,21.9189,Oradea,Bulevardul Decebal 18
+A109,45.4348,27.9716,Galați,Strada Brăilei 44
+A110,45.2692,27.9574,Brăila,Strada Piața Independenței 6
