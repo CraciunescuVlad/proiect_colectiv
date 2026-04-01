@@ -1,0 +1,78 @@
+alarm_id,alarm_status,alarm_time,cancel_time,alam_number,info,severity,technology
+93071,1,10:50,,1,011 All sectors down simultaneously,3,A103,3G
+11903,1,29:38,,2,067 Air filter on shelter ventilation dirty — cleaning needed,1,A039,5G
+96732,0,43:10,51:17,3,034 Iub interface congestion,2,A065,2G
+19187,1,49:14,,4,065 Feeder connector inspection due,1,A095,2G
+16907,0,14:20,30:17,5,004 Flood detected in antenna shelter,3,A008,3G
+46684,1,50:10,,6,091 Anti-climb barrier inspection due,1,A101,3G
+83992,1,2:29,,7,017 RRU (Remote Radio Unit) complete failure,3,A005,3G
+30659,1,2:28,,8,034 Iub interface congestion,2,A040,5G
+46874,0,59:09,59:48,9,098 Door magnetic contact sensor requires calibration,1,A065,2G
+28865,0,46:28,55:15,10,031 GPS/GNSS signal lost — timing reference degraded,2,A020,5G
+99907,1,28:35,,11,080 Fronthaul jitter slightly elevated — within limit,1,A086,4G
+90712,1,21:20,,12,070 Minor interference detected — below threshold,1,A014,4G
+94253,0,58:06,59:03,13,051 Door left open for more than 30 minutes,1,A109,2G
+34623,1,40:13,,14,009 Complete site down — no radio signal,3,A090,3G
+42247,1,19:14,,15,009 Complete site down — no radio signal,3,A011,4G
+80613,1,54:01,,16,097 Smoke detector battery low,1,A015,5G
+12413,0,23:38,50:27,17,077 UE connection count low — possible coverage gap,1,A012,5G
+34541,0,31:34,44:32,18,077 UE connection count low — possible coverage gap,1,A049,4G
+42909,1,32:45,,19,051 Door left open for more than 30 minutes,1,A080,4G
+78863,1,17:08,,20,080 Fronthaul jitter slightly elevated — within limit,1,A010,3G
+84428,1,18:20,,21,007 Battery backup failure — no power redundancy,3,A078,4G
+48964,1,43:10,,22,028 Shelter temperature above threshold (>45°C),2,A039,4G
+19763,1,54:37,,23,078 5G SSB beam index change detected,1,A038,2G
+29840,0,45:50,48:14,24,057 Configuration mismatch detected — non-critical parameter,1,A018,4G
+33465,0,41:11,53:08,25,035 NodeB software process crash — auto-recovery attempted,2,A053,3G
+41336,0,0:32,32:05,26,063 Low traffic load on sector (<5% utilization),1,A062,5G
+74703,1,31:44,,27,080 Fronthaul jitter slightly elevated — within limit,1,A109,3G
+85499,1,24:04,,28,009 Complete site down — no radio signal,3,A092,2G
+77184,0,55:38,59:18,29,083 Backup configuration file not updated in >7 days,1,A095,5G
+47688,0,12:02,51:05,30,034 Iub interface congestion,2,A100,3G
+52636,0,21:45,41:23,31,090 Rectifier efficiency drop — within tolerance,1,A046,4G
+28681,1,7:45,,32,026 Battery temperature high,2,A101,5G
+20278,1,31:12,,33,088 Site energy consumption above monthly average,1,A068,3G
+55557,1,42:56,,34,027 Rectifier module failure (partial — others running),2,A052,2G
+25764,1,14:36,,35,040 LTE carrier frequency interference,2,A091,5G
+71104,0,38:49,55:59,36,013 Equipment overheating — thermal shutdown imminent,3,A005,4G
+59594,1,1:44,,37,029 Shelter humidity above threshold (>85%),2,A012,3G
+29694,0,32:11,42:09,38,031 GPS/GNSS signal lost — timing reference degraded,2,A096,5G
+91264,0,44:52,49:09,39,020 Massive MIMO antenna unit failure,3,A020,4G
+30071,0,48:49,54:00,40,087 Planned site upgrade scheduled,1,A050,2G
+42811,0,23:57,28:33,41,008 Generator failure — cannot start,3,A090,3G
+52982,0,46:27,56:54,42,062 Minor VSWR increase — within acceptable range,1,A033,3G
+18326,0,35:21,39:02,43,085 IPSec tunnel renegotiated — temporary disruption,1,A103,5G
+49877,0,40:15,49:11,44,097 Smoke detector battery low,1,A107,5G
+36969,0,32:58,32:59,45,046 Remote electrical tilt (RET) not responding,2,A075,4G
+78904,1,3:30,,46,093 Grounding resistance elevated — inspection needed,1,A064,3G
+94944,0,56:59,56:59,47,019 5G NR carrier completely down,3,A082,3G
+84099,0,37:30,44:40,48,059 Remote monitoring agent restarted,1,A080,4G
+92978,0,57:55,58:20,49,095 Shelter paint/coating degradation — corrosion risk,1,A033,5G
+82239,1,7:19,,50,018 BBU (Baseband Unit) failure,3,A075,2G
+70428,1,27:26,,51,034 Iub interface congestion,2,A085,4G
+68912,1,3:02,,52,087 Planned site upgrade scheduled,1,A076,3G
+19646,1,26:21,,53,051 Door left open for more than 30 minutes,1,A028,5G
+67864,1,44:12,,54,002 Intrusion detected inside BTS cabinet,3,A042,3G
+43380,1,59:49,,55,045 Fronthaul link to RRU degraded,2,A086,2G
+67921,1,21:03,,56,090 Rectifier efficiency drop — within tolerance,1,A059,4G
+46107,0,57:10,57:39,57,002 Intrusion detected inside BTS cabinet,3,A016,5G
+43792,1,8:55,,58,021 High VSWR detected — antenna likely damaged,2,A104,5G
+34842,1,55:40,,59,057 Configuration mismatch detected — non-critical parameter,1,A076,4G
+36607,0,24:55,33:56,60,022 Sector coverage degraded (>50% capacity loss),2,A071,5G
+19471,1,2:08,,61,011 All sectors down simultaneously,3,A032,5G
+71323,0,26:06,57:43,62,071 Pilot pollution detected in sector,1,A056,2G
+17426,0,36:11,48:10,63,033 High RTWP (Received Total Wideband Power),2,A102,5G
+83709,0,13:29,38:53,64,040 LTE carrier frequency interference,2,A084,5G
+56063,1,31:16,,65,071 Pilot pollution detected in sector,1,A017,3G
+72182,1,33:58,,66,083 Backup configuration file not updated in >7 days,1,A025,4G
+87690,0,58:58,58:59,67,024 Transmission link degraded — high packet loss,2,A050,5G
+87866,0,0:36,18:49,68,053 Shelter internal light failure,1,A105,2G
+98744,0,15:19,28:07,69,017 RRU (Remote Radio Unit) complete failure,3,A010,3G
+92112,0,50:56,58:35,70,080 Fronthaul jitter slightly elevated — within limit,1,A095,2G
+51830,0,36:31,50:39,71,003 Fire alarm triggered in equipment room,3,A009,5G
+80487,0,34:18,38:17,72,014 Air conditioning unit failure — temperature critical,3,A102,2G
+84984,1,36:50,,73,041 Downlink throughput significantly degraded,2,A106,3G
+23112,0,16:34,17:46,74,023 High interference detected on sector,2,A046,3G
+21868,0,21:59,21:59,75,048 Fiber transmission bit error rate elevated,2,A094,5G
+66999,1,20:49,,76,097 Smoke detector battery low,1,A105,2G
+41478,0,17:36,25:08,77,096 CCTV camera offline — non-critical zone,1,A057,4G
