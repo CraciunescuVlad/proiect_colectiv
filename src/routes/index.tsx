@@ -20,6 +20,7 @@
 
 import { type RouteObject, Navigate } from "react-router-dom";
 import loginRoute from "./login";
+import signupRoute from "./signup";
 import callbackRoute from "./callback.tsx";
 import MainLayout from "../layouts/MainLayout";
 import Home from "../components/Home/Home";
@@ -31,6 +32,7 @@ const routes: RouteObject[] = [
         element: <Navigate to="/login" replace />,
     },
     loginRoute,
+    signupRoute,
     callbackRoute,
     {
         element: <MainLayout />,
