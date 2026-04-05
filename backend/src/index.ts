@@ -13,7 +13,7 @@ app.use(express.json());
 // Supabase client (service role — backend only)
 const supabase = createClient(
   process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_ANON_KEY!
 );
 
 app.post("/auth/login", async (req: Request, res: Response) => {
@@ -53,7 +53,6 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ message: "Signup successful! Please verify your email.", user: data.user });
 });
 
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"));
