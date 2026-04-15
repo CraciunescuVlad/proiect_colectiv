@@ -114,6 +114,7 @@ app.get("/alarms", async (req: Request, res: Response) => {
     res.json(data)
 })
 
+
 // GET toate incidentele
 app.get("/incidents", async (req: Request, res: Response) => {
     const { data, error } = await supabase
