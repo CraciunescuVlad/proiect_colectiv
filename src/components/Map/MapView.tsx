@@ -1,21 +1,16 @@
 import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { locations } from "../../data/locations";
+import type { Site } from "./MapPage";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
-const severityColors = {
-    critical: "#f87171",
-    medium: "#facc15",
-    low: "#4ade80",
-};
-
 interface MapViewProps {
     view: string;
+    sites: Site[];
 }
 
-const MapView = ({ view }: MapViewProps) => {
+const MapView = ({ view, sites }: MapViewProps) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
 
@@ -30,38 +25,42 @@ const MapView = ({ view }: MapViewProps) => {
         });
 
         map.current.addControl(new mapboxgl.NavigationControl());
+    }, []);
 
-        map.current.on("load", () => {
-            locations.forEach((location) => {
-                // Create marker element
+    useEffect(() => {
+        if (!map.current || sites.length === 0) return;
+
+        const addMarkers = () => {
+            sites.forEach((site) => {
                 const el = document.createElement("div");
-                el.style.width = "14px";
-                el.style.height = "14px";
-                el.style.borderRadius = "50%";
-                el.style.backgroundColor = severityColors[location.severity];
-                el.style.border = "2px solid white";
-                el.style.boxShadow = `0 0 8px ${severityColors[location.severity]}`;
+                el.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                        <polygon points="8,0 16,16 0,16" fill="#3b82f6" stroke="white" stroke-width="1.5"/>
+                    </svg>
+                `;
                 el.style.cursor = "pointer";
 
-                // Add popup
                 const popup = new mapboxgl.Popup({ offset: 12 })
                     .setHTML(`
                         <div style="background:#0a0015; color:white; padding:10px; border-radius:8px; font-family:sans-serif;">
-                            <strong style="font-size:13px;">${location.name}</strong>
-                            <p style="font-size:11px; color:#aaa; margin:4px 0 0;">${location.description}</p>
-                            <span style="font-size:11px; color:${severityColors[location.severity]}">
-                                ● ${location.severity.charAt(0).toUpperCase() + location.severity.slice(1)}
-                            </span>
+                            <strong style="font-size:13px;">${site.city}</strong>
+                            <p style="font-size:11px; color:#aaa; margin:4px 0 0;">${site.address}</p>
                         </div>
                     `);
 
                 new mapboxgl.Marker(el)
-                    .setLngLat(location.coordinates)
+                    .setLngLat([site.longitude, site.latitudine])
                     .setPopup(popup)
                     .addTo(map.current!);
             });
-        });
-    }, []);
+        };
+
+        if (map.current.isStyleLoaded()) {
+            addMarkers();
+        } else {
+            map.current.on("load", addMarkers);
+        }
+    }, [sites]);
 
     useEffect(() => {
         setTimeout(() => map.current?.resize(), 300);
