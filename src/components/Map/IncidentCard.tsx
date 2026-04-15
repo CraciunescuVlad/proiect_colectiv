@@ -1,5 +1,5 @@
 interface IncidentCardProps {
-    id: number;
+    id: string;
     title?: string;
     description?: string;
     time?: string;

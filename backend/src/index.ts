@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import cron from "node-cron";
 import { exec } from "child_process";
 
+
 dotenv.config();
 
 const app = express();
@@ -67,4 +68,38 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
 
 });
 
-app.listen(3000, () => console.log("Backend running on http://localhost:3000"));
+// GET toate site-urile
+app.get("/sites", async (req: Request, res: Response) => {
+    const { data, error } = await supabase
+        .from("site")
+        .select("id, latitudine, longitude, city, address")
+
+    if (error) {
+        res.status(500).json({ message: error.message })
+        return
+    }
+
+    res.json(data)
+})
+
+// GET un site după id (ex: /sites/A001)
+app.get("/sites/:id", async (req: Request, res: Response) => {
+    const { id } = req.params
+
+    const { data, error } = await supabase
+        .from("site")
+        .select("id, latitudine, longitude, city, address")
+        .eq("id", id)
+        .single()
+
+    if (error) {
+        res.status(404).json({ message: "Site negăsit" })
+        return
+    }
+
+    res.json(data)
+})
+
+app.listen(3000, () => console.log("Backend running on http://localhost:3000"))
+
+
