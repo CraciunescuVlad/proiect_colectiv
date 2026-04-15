@@ -13,16 +13,34 @@ export type Site = {
     address: string;
 }
 
+export type Alarm = {
+    alarm_id: string;
+    status: string;
+    start_time: string;
+    resolved_time: string;
+    type: string;
+    tehnologie: string;
+    site: string;
+}
+
 const MapPage = () => {
     const [view, setView] = useState<View>("split");
     const [sites, setSites] = useState<Site[]>([]);
+    const [alarms, setAlarms] = useState<Alarm[]>([]);
+
 
     useEffect(() => {
         fetch("http://localhost:3000/sites")
             .then(res => res.json())
             .then(data => setSites(data))
             .catch(err => console.error(err));
+
+        fetch("http://localhost:3000/alarms")
+            .then(res => res.json())
+            .then(data => setAlarms(data))
+            .catch(err => console.error(err));
     }, []);
+
 
     return (
         <div className="flex flex-col h-screen bg-[#060010]">
@@ -55,7 +73,7 @@ const MapPage = () => {
                 )}
                 <div className={`rounded-2xl overflow-hidden transition-all duration-300
                     ${view === "list" ? "w-0 opacity-0" : view === "map" ? "w-full" : "w-[55%]"}`}>
-                    <MapView view={view} sites={sites} />
+                    <MapView view={view} sites={sites} alarms={alarms} />
                 </div>
             </div>
         </div>
