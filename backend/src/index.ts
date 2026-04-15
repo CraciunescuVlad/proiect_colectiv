@@ -100,6 +100,35 @@ app.get("/sites/:id", async (req: Request, res: Response) => {
     res.json(data)
 })
 
+// GET toate alarmele
+app.get("/alarms", async (req: Request, res: Response) => {
+    const { data, error } = await supabase
+        .from("alarms")
+        .select("alarm_id, status, start_time, resolved_time, type, tehnologie, site")
+
+    if (error) {
+        res.status(500).json({ message: error.message })
+        return
+    }
+
+    res.json(data)
+})
+
+// GET toate incidentele
+app.get("/incidents", async (req: Request, res: Response) => {
+    const { data, error } = await supabase
+        .from("incidents")
+        .select("incident_id, alarm_id, status, start_time, end_time, urgency, impact, priority, assigned_to")
+
+    if (error) {
+        res.status(500).json({ message: error.message })
+        return
+    }
+
+    res.json(data)
+})
+
+
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))
 
 
