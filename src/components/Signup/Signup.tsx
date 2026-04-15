@@ -39,7 +39,7 @@ const Signup = () => {
                 return;
             }
 
-            setSuccess("Account created! Please check your email to verify your account.");
+            setSuccess("Account created! Please log in.");
             setError("");
         } catch (err) {
             setError("Something went wrong. Try again.");
@@ -93,7 +93,7 @@ const Signup = () => {
                             onClick={() => navigate("/login")}
                             className="text-white cursor-pointer hover:underline"
                         >
-                            Sign in
+                            Log in
                         </span>
                     </p>
                 </div>

@@ -3,6 +3,8 @@ import type { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import cron from "node-cron";
+import { exec } from "child_process";
 
 
 dotenv.config();
@@ -17,6 +19,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const runScript = () => {
+  exec("python ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
+    if (error) { console.error("Script error:", error.message); return; }
+    if (stdout) console.log(stdout);
+    if (stderr) console.error(stderr);
+  });
+};
+
+cron.schedule("*/5 * * * *", runScript);
+runScript();
 app.post("/auth/login", async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -54,7 +66,6 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ message: "Signup successful! Please verify your email.", user: data.user });
 });
 
 // GET toate site-urile
