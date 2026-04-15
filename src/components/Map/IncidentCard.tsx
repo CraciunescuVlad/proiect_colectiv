@@ -5,7 +5,7 @@ interface IncidentCardProps {
     time?: string;
     severity?: "critical" | "medium" | "low";
 }
-
+///com
 const severityConfig = {
     critical: { color: "bg-red-400", label: "Critical", text: "text-red-400" },
     medium: { color: "bg-yellow-400", label: "Medium", text: "text-yellow-400" },
