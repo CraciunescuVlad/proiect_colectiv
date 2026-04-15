@@ -1,16 +1,33 @@
+import { useEffect, useState } from "react";
 import IncidentCard from "./IncidentCard";
-import { locations } from "../../data/locations";
+
+
+type Site = {
+    id: string;
+    latitudine: number;
+    longitude: number;
+    city: string;
+    address: string;
+}
 
 const IncidentList = () => {
+    const [sites, setSites] = useState<Site[]>([]);
+
+    useEffect(() => {
+        fetch("http://localhost:3000/sites")
+            .then(res => res.json())
+            .then(data => setSites(data))
+            .catch(err => console.error(err));
+    }, []);
+
     return (
         <div className="overflow-y-auto flex flex-col gap-3 h-full">
-            {locations.map((location) => (
+            {sites.map((site) => (
                 <IncidentCard
-                    key={location.id}
-                    id={location.id}
-                    title={location.name}
-                    description={location.description}
-                    severity={location.severity}
+                    key={site.id}
+                    id={site.id}
+                    title={site.city}
+                    description={site.address}
                 />
             ))}
         </div>
