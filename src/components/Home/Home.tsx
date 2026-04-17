@@ -1,65 +1,50 @@
-import { useNavigate } from "react-router-dom";
+import useAlarms from "../../hooks/useAlarms";
+import useStats from "../../hooks/useStats";
+import StatCard from "./StatCard";
+import IncidentChart from "./IncidentChart";
+import { ArrowDownToLine, Calendar, ChevronDown } from "lucide-react";
 import { locations } from "../../data/locations";
-import IncidentCard from "../Map/IncidentCard";
 
 const Home = () => {
-    const navigate = useNavigate();
+    const { loading: statsLoading } = useAlarms();
+    const { stats } = useStats();
 
+    const totalAlarms = statsLoading ? "..." : `${stats?.total ?? 0}`;
+    const totalIncidents = locations.length;
+    const resolutionRate = statsLoading ? "..." : `${stats?.resolutionRate ?? 0}%`;
+    const avgResolveTime = statsLoading ? "..." : (stats?.avgResolveTime ?? "N/A");
     const criticalCount = locations.filter(l => l.severity === "critical").length;
-    const mediumCount = locations.filter(l => l.severity === "medium").length;
-    const lowCount = locations.filter(l => l.severity === "low").length;
 
     return (
-        <div className="flex flex-col h-screen bg-[#060010] p-6 overflow-y-auto">
+        <div className="flex flex-col h-screen bg-[#060010] px-24 py-6 overflow-y-auto">
 
             {/* Header */}
-            <div className="mb-6">
-                <h1 className="text-white text-2xl font-bold">Dashboard</h1>
-                <p className="text-white/40 text-sm">Overview of all incidents</p>
+            <div className="flex items-center justify-between mb-8">
+                <h1 className="text-white text-2xl font-semibold">Dashboard</h1>
+                <div className="flex items-center gap-3">
+                    <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm px-4 py-2 rounded-lg transition-colors">
+                        <ArrowDownToLine size={16} />
+                        Download Report
+                    </button>
+                    <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm px-4 py-2 rounded-lg transition-colors">
+                        <Calendar size={16} />
+                        Last 30 Days
+                        <ChevronDown size={16} />
+                    </button>
+                </div>
             </div>
 
             {/* Stats row */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                    <p className="text-white/40 text-xs mb-1">Total Incidents</p>
-                    <p className="text-white text-2xl font-bold">{locations.length}</p>
-                </div>
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                    <p className="text-red-400/70 text-xs mb-1">Critical</p>
-                    <p className="text-red-400 text-2xl font-bold">{criticalCount}</p>
-                </div>
-                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
-                    <p className="text-orange-400/70 text-xs mb-1">Medium</p>
-                    <p className="text-orange-400 text-2xl font-bold">{mediumCount}</p>
-                </div>
-                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
-                    <p className="text-green-400/70 text-xs mb-1">Low</p>
-                    <p className="text-green-400 text-2xl font-bold">{lowCount}</p>
-                </div>
+            <div className="flex w-full mb-8">
+                <StatCard label="Total Alarms"       value={totalAlarms}         change="25.32%" up={true}  />
+                <StatCard label="Incidents"          value={`${totalIncidents}`} change="25.32%" up={true}  />
+                <StatCard label="Resolution Rate"    value={resolutionRate}      change="25.32%" up={false} />
+                <StatCard label="Avg Resolve Time"   value={avgResolveTime}      change="25.32%" up={false} />
+                <StatCard label="Critical Incidents" value={`${criticalCount}`}  change="25.32%" up={false} />
             </div>
 
-            {/* Incidents list */}
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-white font-semibold">Recent Incidents</h2>
-                <button
-                    onClick={() => navigate("/map")}
-                    className="text-white/40 hover:text-white text-sm transition-colors"
-                >
-                    View on map →
-                </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-                {locations.map((location) => (
-                    <IncidentCard
-                        key={location.id}
-                        id={location.id}
-                        title={location.name}
-                        description={location.description}
-                        severity={location.severity}
-                    />
-                ))}
-            </div>
+            {/* Chart */}
+            <IncidentChart />
 
         </div>
     );
