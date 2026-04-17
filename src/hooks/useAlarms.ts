@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Alarm } from "../types/alarms.ts";
+import type { Alarm } from "../components/Map/MapPage.tsx";
 
 const useAlarms = () => {
     const [alarms, setAlarms] = useState<Alarm[]>([]);
