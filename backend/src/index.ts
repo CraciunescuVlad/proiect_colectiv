@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import cron from "node-cron";
 import { exec } from "child_process";
+import createDashboardRouter from "./routes/dashboard";
 
 
 dotenv.config();
@@ -18,6 +19,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+app.use("/dashboard", createDashboardRouter(supabase));
 
 const runScript = () => {
   exec("python ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
