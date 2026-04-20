@@ -39,8 +39,9 @@ const Signup = () => {
                 return;
             }
 
-            setSuccess("Account created! Please log in.");
+            setSuccess("Account created! Redirecting to login...");
             setError("");
+            setTimeout(() => navigate("/login", { state: { email } }), 1000);
         } catch (err) {
             setError("Something went wrong. Try again.");
         }

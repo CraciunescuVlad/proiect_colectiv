@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Login = () => {
     const navigate = useNavigate();
-    const [email, setEmail] = useState("");
+    const location = useLocation();
+    const [email, setEmail] = useState((location.state as { email?: string })?.email ?? "");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
 
