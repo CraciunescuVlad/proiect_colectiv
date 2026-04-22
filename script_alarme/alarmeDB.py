@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 alarm_id=[]
 site_id=[]
 techno=["2G", "3G", "4G", "5G"]
-nr_alarms=random.randint(50, 140)
+nr_alarms=random.randint(1, 30)
 info_alarm=[]
 rows = []
 
@@ -25,7 +25,7 @@ def resolve_old_alarms():
     print(f"Alarme active gasite: {len(alarm_id_active)}")
 
     if alarm_id_active:
-        n_to_resolve = random.randint(1, len(alarm_id_active))
+        n_to_resolve = random.randint(int(0.6*len(alarm_id_active)), int(0.9*len(alarm_id_active)))
         alarm_to_resolve = random.sample(alarm_id_active, n_to_resolve)
 
         start_times = {row["alarm_id"]: row["start_time"] for row in supabase.table("alarms").select("alarm_id, start_time").in_("alarm_id", alarm_to_resolve).execute().data}
