@@ -31,7 +31,7 @@ const MapView = ({ view, sites, alarms }: MapViewProps) => {
     useEffect(() => {
         if (!map.current || sites.length === 0 || alarms.length === 0) return;
 
-        const siteIdsWithAlarms = new Set(alarms.map(a => a.site));
+        const siteIdsWithAlarms = new Set(alarms.filter(a => a.status === 1).map(a => a.site));
 
 
         const markers: mapboxgl.Marker[] = [];
