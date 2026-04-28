@@ -15,7 +15,7 @@ export type Site = {
 
 export type Alarm = {
     alarm_id: string;
-    status: string;
+    status: number;
     start_time: string;
     resolved_time: string;
     type: string;
