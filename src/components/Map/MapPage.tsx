@@ -14,7 +14,7 @@ export type Site = {
 }
 
 export type Alarm = {
-    alarm_id: string;
+    alarm_id: number;
     status: number;
     start_time: string;
     resolved_time: string;
@@ -23,11 +23,25 @@ export type Alarm = {
     site: string;
 }
 
+export type Incident={
+    incident_id:number;
+    alarm_id: number;
+    status:number;
+    start_time: string;
+    end_time: string;
+    urgency: number;
+    impact:number;
+    priority: number;
+    assigned_to: number;
+    message: string;
+
+}
+
 const MapPage = () => {
     const [view, setView] = useState<View>("split");
     const [sites, setSites] = useState<Site[]>([]);
     const [alarms, setAlarms] = useState<Alarm[]>([]);
-
+    const [incidents, setIncidents] = useState<Incident[]>([]);
 
     useEffect(() => {
         fetch("http://localhost:3000/sites")
@@ -38,6 +52,11 @@ const MapPage = () => {
         fetch("http://localhost:3000/alarms")
             .then(res => res.json())
             .then(data => setAlarms(data))
+            .catch(err => console.error(err));
+
+        fetch("http://localhost:3000/incidents")
+            .then(res => res.json())
+            .then(data => setIncidents(data))
             .catch(err => console.error(err));
     }, []);
 
@@ -73,7 +92,7 @@ const MapPage = () => {
                 )}
                 <div className={`rounded-2xl overflow-hidden transition-all duration-300
                     ${view === "list" ? "w-0 opacity-0" : view === "map" ? "w-full" : "w-[55%]"}`}>
-                    <MapView view={view} sites={sites} alarms={alarms} />
+                    <MapView view={view} sites={sites} alarms={alarms} incidents={incidents} />
                 </div>
             </div>
         </div>

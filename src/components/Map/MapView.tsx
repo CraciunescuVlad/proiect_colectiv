@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import type { Alarm, Site } from "./MapPage";
+import type { Alarm, Site, Incident } from "./MapPage";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -9,9 +9,10 @@ interface MapViewProps {
     view: string;
     sites: Site[];
     alarms: Alarm[];
+    incidents: Incident[];
 }
 
-const MapView = ({ view, sites, alarms }: MapViewProps) => {
+const MapView = ({ view, sites, alarms, incidents }: MapViewProps) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
 
@@ -39,6 +40,15 @@ const MapView = ({ view, sites, alarms }: MapViewProps) => {
                 const existing = siteAlarmsMap.get(a.site) ?? [];
                 siteAlarmsMap.set(a.site, [...existing, a]);
             });
+        const siteIncidentsSet = new Set(
+            incidents
+                .filter(i => i.status === 1)
+                .map(i => {
+                    const alarm = alarms.find(a => a.alarm_id === i.alarm_id);
+                    return alarm?.site;
+                })
+                .filter(Boolean)
+        );
 
         const markers: mapboxgl.Marker[] = [];
 
@@ -48,14 +58,19 @@ const MapView = ({ view, sites, alarms }: MapViewProps) => {
                 const hasAlarm = siteAlarms.length > 0;
 
                 const el = document.createElement("div");
-                el.innerHTML = hasAlarm
+                const hasIncident = siteIncidentsSet.has(site.id);
+
+                el.innerHTML = hasIncident
                     ? `<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
-                           <rect width="14" height="14" fill="#8b5cf6" stroke="white" stroke-width="1.5"/>
-                       </svg>`
-                    : `<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                           <polygon points="8,0 16,16 0,16" fill="#3b82f6" stroke="white" stroke-width="1.5"/>
-                       </svg>`;
-                el.style.cursor = "pointer";
+           <circle cx="7" cy="7" r="6" fill="#ef4444" stroke="white" stroke-width="1.5"/>
+       </svg>`
+                    : hasAlarm
+                        ? `<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
+           <rect width="14" height="14" fill="#8b5cf6" stroke="white" stroke-width="1.5"/>
+       </svg>`
+                        : `<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+           <polygon points="8,0 16,16 0,16" fill="#3b82f6" stroke="white" stroke-width="1.5"/>
+       </svg>`;
 
                 const technologyColors: Record<string, { bg: string; color: string; border: string }> = {
                     "2G": { bg: "#1a2e1a", color: "#4ade80", border: "#16a34a" },
@@ -111,7 +126,7 @@ const MapView = ({ view, sites, alarms }: MapViewProps) => {
             markers.forEach(m => m.remove());
         };
 
-    }, [sites, alarms]);
+    }, [sites, alarms,incidents]);
 
     useEffect(() => {
         setTimeout(() => map.current?.resize(), 300);
