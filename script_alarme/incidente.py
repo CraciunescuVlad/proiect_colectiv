@@ -7,25 +7,13 @@ from dotenv import load_dotenv
 load_dotenv()
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
 
-INCIDENT_TRIGGER_CHANCE = 0.10  # 10% sansa ca o alarma sa declanseze un incident
-
-
-# functie care verifica daca tabela incidents are coloanele impact si urgency
-# returneaza True daca ambele coloane exista, False altfel
-def tabela_are_impact_urgency():
-    try:
-        test = supabase.table("incidents").select("impact, urgency").limit(1).execute()
-        return True
-    except Exception:
-        return False
-
+INCIDENT_TRIGGER_CHANCE = random.uniform(0, 0.4)
 
 # functie care calculeaza prioritatea unui incident pe baza alarmelor de pe site
-# priority = media severity-urilor alarmelor de pe site incepand cu start_time_incident
-#            + 1 pentru fiecare alarma inca activa (status=1)
+# priority = string pe baza mediei severity-urilor alarmelor active de pe site
 # severity-ul fiecarei alarme se ia din tabela alarm_types prin campul type din tabela alarms
-def calculeaza_priority(site_id, start_time_incident):
-    alarme = (
+def calculate_priority(site_id, start_time_incident):
+    alarms = (
         supabase.table("alarms")
         .select("type, status")
         .eq("site", site_id)
@@ -33,13 +21,12 @@ def calculeaza_priority(site_id, start_time_incident):
         .execute()
     )
 
-    if not alarme.data:
-        return 1  # prioritate implicita daca nu exista alarme
+    if not alarms.data:
+        return "Warning"
 
-    type_ids = list({row["type"] for row in alarme.data})
-    severitati_map = {}
+    type_ids = list({row["type"] for row in alarms.data})
+    severity_map = {}
 
-    # incarca severity din alarm_types pentru fiecare tip unic de alarma
     alarm_types_data = (
         supabase.table("alarm_types")
         .select("id, severity")
@@ -47,81 +34,139 @@ def calculeaza_priority(site_id, start_time_incident):
         .execute()
     )
     for at in alarm_types_data.data:
-        severitati_map[at["id"]] = at["severity"]
+        severity_map[at["id"]] = at["severity"]
 
     total_severity = 0
-    nr_alarme = len(alarme.data)
+    nr_active_alarms = 0
 
-    for row in alarme.data:
-        severity = severitati_map.get(row["type"], 1)
-        total_severity += severity
-        if row["status"] == 1:  # alarma inca activa -> +1 penalizare
-            total_severity += 1
+    for row in alarms.data:
+        if row["status"] == 1:
+            severity = severity_map.get(row["type"], 1)
+            total_severity += severity
+            nr_active_alarms += 1
 
-    priority = round(total_severity / nr_alarme) if nr_alarme > 0 else 1
-    return int(priority)
+    if nr_active_alarms == 0:
+        return "Warning"
+
+    priority = total_severity / nr_active_alarms
+
+    if priority < 1:
+        return "Warning"
+    elif priority < 2:
+        return "Minor"
+    elif priority < 3:
+        return "Major"
+    else:
+        return "Critical"
+
+def get_latest_resolved_on_site(site_id):
+    if not site_id:
+        return datetime.now(timezone.utc)
+    resolved = (
+        supabase.table("alarms")
+        .select("resolved_time")
+        .eq("site", site_id)
+        .eq("status", 0)
+        .not_.is_("resolved_time", "null")
+        .order("resolved_time", desc=True)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if resolved:
+        return datetime.fromisoformat(resolved[0]["resolved_time"])
+    return datetime.now(timezone.utc)
 
 
-# functie care rezolva random incidentele inca active (status=1) din baza de date
-# se alege un numar random de incidente de rezolvat si le inchide
-# site-ul incidentului se determina indirect prin alarm_id -> alarms.site
-# end_time-ul va fi >= resolved_time-ul celei mai noi alarme rezolvate de pe site-ul incidentului
-# se da update la baza de date
 def resolve_old_incidents():
+    active = supabase.table("incidents").select("incident_id, start_time").eq("status", 1).execute()
+    active_incidents = active.data
+    print(f"Incidente active gasite: {len(active_incidents)}")
 
-    active = supabase.table("incidents").select("incident_id, alarm_id").eq("status", 1).execute()
-    incidente_active = active.data
-    print(f"Incidente active gasite: {len(incidente_active)}")
-
-    if not incidente_active:
+    if not active_incidents:
         return
 
-    n_to_resolve = random.randint(
-        int(0.6 * len(incidente_active)),
-        int(0.9 * len(incidente_active))
-    )
-    incidente_de_rezolvat = random.sample(incidente_active, n_to_resolve)
+    n_to_resolve = random.randint(int(0.6 * len(active_incidents)), int(0.9 * len(active_incidents)))
+    incidents_to_resolve = random.sample(active_incidents, n_to_resolve)
+    incident_ids_to_resolve = [i["incident_id"] for i in incidents_to_resolve]
 
-    # incarca site-ul pentru fiecare alarm_id al incidentelor de rezolvat
-    alarm_ids = [i["alarm_id"] for i in incidente_de_rezolvat]
-    alarme_info = (
+    links = (
+        supabase.table("incident_alarms")
+        .select("incident_id, alarm_id")
+        .in_("incident_id", incident_ids_to_resolve)
+        .execute()
+        .data
+    )
+    alarm_ids = [row["alarm_id"] for row in links]
+    alarms_info = (
         supabase.table("alarms")
-        .select("alarm_id, site")
+        .select("alarm_id, site, start_time, status")
         .in_("alarm_id", alarm_ids)
         .execute()
+        .data
     )
-    site_pentru_alarm = {row["alarm_id"]: row["site"] for row in alarme_info.data}
 
-    for incident in incidente_de_rezolvat:
+    alarm_to_data = {row["alarm_id"]: row for row in alarms_info}
+    alarms_per_incident = {}
+    for row in links:
+        alarms_per_incident.setdefault(row["incident_id"], []).append(alarm_to_data.get(row["alarm_id"]))
+
+    site_per_incident = {}
+    for inc_id, alarms in alarms_per_incident.items():
+        for a in alarms:
+            if a:
+                site_per_incident[inc_id] = a["site"]
+                break
+
+    for incident in incidents_to_resolve:
         incident_id = incident["incident_id"]
-        alarm_id = incident["alarm_id"]
+        site_id = site_per_incident.get(incident_id)
+        incident_start = datetime.fromisoformat(incident["start_time"])
+        incident_alarms_data = [a for a in alarms_per_incident.get(incident_id, []) if a]
 
-        # site-ul incidentului se obtine prin alarma care l-a declansat
-        site_id = site_pentru_alarm.get(alarm_id)
+        latest_resolved = get_latest_resolved_on_site(site_id)
+        active_alarms = [a for a in incident_alarms_data if a["status"] == 1]
 
-        if site_id:
-            # gaseste cea mai recenta alarma rezolvata de pe site-ul acestui incident
-            alarme_rezolvate = (
-                supabase.table("alarms")
-                .select("resolved_time")
-                .eq("site", site_id)
-                .eq("status", 0)
-                .not_.is_("resolved_time", "null")
-                .order("resolved_time", desc=True)
-                .limit(1)
-                .execute()
-            )
-        else:
-            alarme_rezolvate = None
+        if not active_alarms:
+            end_time = incident_start + timedelta(seconds=random.randint(10, 120))
+            supabase.table("incidents").update({
+                "status": 0,
+                "end_time": end_time.isoformat()
+            }).eq("incident_id", incident_id).execute()
+            continue
 
-        if site_id and alarme_rezolvate and alarme_rezolvate.data:
-            cea_mai_noua_rezolvare = datetime.fromisoformat(alarme_rezolvate.data[0]["resolved_time"])
-            # end_time-ul incidentului este >= resolved_time-ul celei mai noi alarme rezolvate
-            extra_seconds = random.randint(0, 120)
-            end_time = cea_mai_noua_rezolvare + timedelta(seconds=extra_seconds)
-        else:
-            # daca nu exista alarme rezolvate sau site-ul nu a fost gasit, inchidem la momentul curent
-            end_time = datetime.now(timezone.utc)
+        active_alarms.sort(key=lambda a: a["start_time"])
+        oldest_alarm = active_alarms[0]
+        other_alarms = active_alarms[1:]
+
+        oldest_resolved_time = latest_resolved + timedelta(seconds=random.randint(10, 120))
+        oldest_start = datetime.fromisoformat(oldest_alarm["start_time"])
+        if oldest_resolved_time < oldest_start:
+            oldest_resolved_time = oldest_start + timedelta(seconds=random.randint(10, 120))
+
+        supabase.table("alarms").update({
+            "status": 0,
+            "resolved_time": oldest_resolved_time.isoformat()
+        }).eq("alarm_id", oldest_alarm["alarm_id"]).execute()
+
+        for alarm in other_alarms:
+            alarm_start = datetime.fromisoformat(alarm["start_time"])
+            lower_bound = max(alarm_start, oldest_start)
+            upper_bound = oldest_resolved_time
+            if upper_bound <= lower_bound:
+                resolved_time = lower_bound + timedelta(seconds=random.randint(1, 30))
+            else:
+                delta_seconds = int((upper_bound - lower_bound).total_seconds())
+                resolved_time = lower_bound + timedelta(seconds=random.randint(1, max(1, delta_seconds)))
+
+            supabase.table("alarms").update({
+                "status": 0,
+                "resolved_time": resolved_time.isoformat()
+            }).eq("alarm_id", alarm["alarm_id"]).execute()
+
+        end_time = oldest_resolved_time + timedelta(seconds=random.randint(10, 120))
+        if end_time < incident_start:
+            end_time = incident_start + timedelta(seconds=random.randint(10, 120))
 
         supabase.table("incidents").update({
             "status": 0,
@@ -131,98 +176,131 @@ def resolve_old_incidents():
     print(f"{n_to_resolve} incidente rezolvate.")
 
 
+def get_active_sites():
+    active = supabase.table("incidents").select("incident_id").eq("status", 1).execute().data
+    active_ids = [row["incident_id"] for row in active]
+    if not active_ids:
+        return set()
+    incident_alarms = supabase.table("incident_alarms").select("alarm_id").in_("incident_id", active_ids).execute().data
+    alarm_ids = [row["alarm_id"] for row in incident_alarms]
+    if not alarm_ids:
+        return set()
+    alarms = (
+        supabase.table("alarms")
+        .select("site")
+        .in_("alarm_id", alarm_ids)
+        .execute()
+        .data
+    )
+    return {row["site"] for row in alarms}
+
+
+def insert_incident_alarms(links):
+    if not links:
+        return
+    existing = supabase.table("incident_alarms").select("id").execute().data
+    existing_ids = {row["id"] for row in existing}
+
+    for link in links:
+        new_id = random.randint(100000, 999999)
+        while new_id in existing_ids:
+            new_id = random.randint(100000, 999999)
+        link["id"] = new_id
+        existing_ids.add(new_id)
+
+    supabase.table("incident_alarms").insert(links).execute()
+
 # functie care genereaza incidente noi pe baza alarmelor nou create
 # fiecare site poate avea cel mult un incident activ odata
-# site-ul unui incident activ se determina indirect prin alarm_id -> alarms.site
-# fiecare alarma are o sansa de 10% sa declanseze un incident pe site-ul ei
+# site-ul unui incident activ se determina indirect prin incident_alarms -> alarms.site
+# fiecare alarma are o sansa de INCIDENT_TRIGGER_CHANCE sa declanseze un incident pe site-ul ei
 # daca site-ul are deja un incident activ, nu se mai creeaza unul nou
-# priority se calculeaza ca media severity alarmelor de pe site + 1 pentru fiecare alarma activa
-# daca tabela are coloanele impact si urgency, acestea primesc aceeasi valoare ca priority
-# se da update la baza de date
+# cand se creeaza un incident, se ataseaza toate alarmele active de pe site care nu sunt
+# deja atasate la alt incident, nu doar alarma declansatoare
 def deploy_new_incidents():
 
-    are_impact_urgency = tabela_are_impact_urgency()
-    print(f"Tabela incidents are coloanele impact/urgency: {are_impact_urgency}")
+    all_incidents = [row["incident_id"] for row in supabase.table("incidents").select("incident_id").execute().data]
 
-    incident_id_existente = [
-        row["incident_id"] for row in supabase.table("incidents").select("incident_id").execute().data
-    ]
+    active_incident_sites = get_active_sites()
 
-    # determina site-urile care au deja un incident activ prin alarm_id -> alarms.site
-    incidente_active = supabase.table("incidents").select("alarm_id").eq("status", 1).execute().data
-    alarm_ids_active = [row["alarm_id"] for row in incidente_active]
+    print(f"Site-uri cu incident activ deja: {len(active_incident_sites)}")
 
-    site_uri_cu_incident_activ = set()
-    if alarm_ids_active:
-        alarme_active_info = (
-            supabase.table("alarms")
-            .select("alarm_id, site")
-            .in_("alarm_id", alarm_ids_active)
-            .execute()
-        )
-        site_uri_cu_incident_activ = {row["site"] for row in alarme_active_info.data}
-    print(f"Site-uri cu incident activ deja: {len(site_uri_cu_incident_activ)}")
-
-    # ia toate alarmele create in ultimele 5 minute (fereastra de rulare a scriptului)
-    fereastra_start = datetime.now(timezone.utc) - timedelta(seconds=300)
-    alarme_noi = (
+    window_start = datetime.now(timezone.utc) - timedelta(seconds=300)
+    new_alarms = (
         supabase.table("alarms")
-        .select("alarm_id, site, start_time")
-        .gte("start_time", fereastra_start.isoformat())
+        .select("alarm_id, site, start_time, status")
+        .gte("start_time", window_start.isoformat())
+        .eq("status", 1)
         .execute()
     )
-    print(f"Alarme noi gasite in fereastra de 5 minute: {len(alarme_noi.data)}")
+    print(f"Alarme noi gasite in fereastra de 5 minute: {len(new_alarms.data)}")
 
-    incidente_noi = []
-    incident_id_folosite = list(incident_id_existente)
-    site_uri_prelucrate = set(site_uri_cu_incident_activ)  # copie locala pentru a evita duplicate in acelasi batch
+    new_incidents = []
+    new_links = []
 
-    for alarma in alarme_noi.data:
-        site_id = alarma["site"]
-        alarm_id = alarma["alarm_id"]
-        start_time_alarma = datetime.fromisoformat(alarma["start_time"])
+    used = supabase.table("incident_alarms").select("alarm_id").execute().data
+    used_alarm_ids = {row["alarm_id"] for row in used}
 
-        # verificare: site-ul nu are deja un incident activ
-        if site_id in site_uri_prelucrate:
+    all_active_alarms = (
+        supabase.table("alarms")
+        .select("alarm_id, site, start_time")
+        .eq("status", 1)
+        .execute()
+        .data
+    )
+    alarms_per_site = {}
+    for a in all_active_alarms:
+        alarms_per_site.setdefault(a["site"], []).append(a)
+
+    for alarm in new_alarms.data:
+        if alarm["alarm_id"] in used_alarm_ids:
+            continue
+        site_id = alarm["site"]
+        alarm_id = alarm["alarm_id"]
+        alarm_start_time = datetime.fromisoformat(alarm["start_time"])
+
+        if site_id in active_incident_sites:
             continue
 
-        # 10% sansa ca aceasta alarma sa declanseze un incident
         if random.random() > INCIDENT_TRIGGER_CHANCE:
             continue
 
-        # genereaza un incident_id unic
         this_incident_id = random.randint(10000, 99999)
-        while this_incident_id in incident_id_folosite:
+        while this_incident_id in all_incidents:
             this_incident_id = random.randint(10000, 99999)
-        incident_id_folosite.append(this_incident_id)
+        all_incidents.append(this_incident_id)
 
-        # start_time-ul incidentului este acelasi cu start_time-ul alarmei care l-a declansat
-        start_time_incident = start_time_alarma
+        incident_start_time = alarm_start_time
 
-        # calculeaza priority pe baza alarmelor de pe site incepand cu start_time_incident
-        priority = calculeaza_priority(site_id, start_time_incident)
+        priority = calculate_priority(site_id, incident_start_time)
 
         incident_row = {
             "incident_id": this_incident_id,
-            "alarm_id": alarm_id,        # alarma care a declansat incidentul
-            "status": 1,                 # incident activ
-            "start_time": start_time_incident.isoformat(),
+            "status": 1,
+            "start_time": incident_start_time.isoformat(),
             "end_time": None,
             "priority": priority,
-            "assigned_to": None,         # nealocat implicit
+            "assigned_to": None,
         }
+        new_incidents.append(incident_row)
 
-        # daca tabela suporta impact si urgency, le setam cu aceeasi valoare ca priority
-        if are_impact_urgency:
-            incident_row["urgency"] = priority
-            incident_row["impact"] = priority
+        for a in alarms_per_site.get(site_id, []):
+            if a["alarm_id"] in used_alarm_ids:
+                continue
+            new_links.append({
+                "incident_id": this_incident_id,
+                "alarm_id": a["alarm_id"],
+                "created_at": a["start_time"],
+            })
+            used_alarm_ids.add(a["alarm_id"])
 
-        incidente_noi.append(incident_row)
-        site_uri_prelucrate.add(site_id)  # marcam site-ul ca avand deja un incident in acest batch
+        active_incident_sites.add(site_id)
 
-    if incidente_noi:
-        supabase.table("incidents").insert(incidente_noi).execute()
-        print(f"{len(incidente_noi)} incidente noi inserate cu succes.")
+    if new_incidents:
+        supabase.table("incidents").insert(new_incidents).execute()
+        insert_incident_alarms(new_links)
+        print(f"{len(new_incidents)} incidente noi inserate cu succes.")
+        print(f"{len(new_links)} legaturi incident-alarma inserate.")
     else:
         print("Niciun incident nou generat in aceasta rulare.")
 
