@@ -51,14 +51,12 @@ const MapPage = () => {
         Promise.all([
             fetch("http://localhost:3000/sites").then(res => res.json()),
             fetch("http://localhost:3000/standalone_alarms").then(res => res.json()),
-            // MODIFICĂ AICI: din /incidents în /active_incidents
             fetch("http://localhost:3000/active_incidents").then(res => res.json()),
         ]).then(([sitesData, alarmsData, incidentsData]: [Site[], Alarm[], Incident[]]) => {
             setSites(sitesData);
             setStandaloneAlarms(alarmsData);
             setIncidents(incidentsData);
 
-            // Acum incidentsData va avea proprietatea .alarms pe care o folosești aici:
             const siteIds = new Set<string>(
                 incidentsData
                     .flatMap(i => i.alarms ? i.alarms.map(a => a.site) : [])
