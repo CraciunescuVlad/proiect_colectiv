@@ -69,19 +69,19 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites }: M
         const markers: mapboxgl.Marker[] = [];
 
         const updateMarkers = () => {
-            // Curățăm markerii vechi
+            // Curata markerii vechi
             markers.forEach(m => m.remove());
 
             sites.forEach((site) => {
                 const hasIncident = incidentSites.has(site.id);
-                // Filtrăm alarmele standalone specifice acestui site
+                // Filtram alarmele standalone specifice acestui site
                 const siteStandaloneAlarms = standalone_alarms.filter(a => a.site === site.id);
                 const hasStandalone = siteStandaloneAlarms.length > 0;
 
                 const el = document.createElement("div");
                 el.className = "marker-container";
 
-                // Logica vizuală a markerului
+                // Logica vizuala a markerului
                 if (hasIncident) {
                     el.innerHTML = `<svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#ef4444" stroke="white" stroke-width="1.5"/></svg>`;
                 } else if (hasStandalone) {
