@@ -23,47 +23,53 @@ export type Alarm = {
     site: string;
 }
 
-export type Incident={
-    incident_id:number;
-    alarm_id: number;
-    status:number;
+export type Incident = {
+    incident_id: number;
+    status: number;
     start_time: string;
     end_time: string;
-    urgency: number;
-    impact:number;
-    priority: number;
-    assigned_to: number;
-    message: string;
-
+    priority: string;
+    assigned_to: string;
+    messages: string;
+    alarms: {
+        alarm_id: number;
+        site: string;
+        tehnologie: string;
+        type: string;
+        status: number;
+    }[];
 }
 
 const MapPage = () => {
     const [view, setView] = useState<View>("split");
     const [sites, setSites] = useState<Site[]>([]);
-    const [alarms, setAlarms] = useState<Alarm[]>([]);
+    const [standaloneAlarms, setStandaloneAlarms] = useState<Alarm[]>([]);
     const [incidents, setIncidents] = useState<Incident[]>([]);
+    const [incidentSites, setIncidentSites] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        fetch("http://localhost:3000/sites")
-            .then(res => res.json())
-            .then(data => setSites(data))
-            .catch(err => console.error(err));
+        Promise.all([
+            fetch("http://localhost:3000/sites").then(res => res.json()),
+            fetch("http://localhost:3000/standalone_alarms").then(res => res.json()),
+            // MODIFICĂ AICI: din /incidents în /active_incidents
+            fetch("http://localhost:3000/active_incidents").then(res => res.json()),
+        ]).then(([sitesData, alarmsData, incidentsData]: [Site[], Alarm[], Incident[]]) => {
+            setSites(sitesData);
+            setStandaloneAlarms(alarmsData);
+            setIncidents(incidentsData);
 
-        fetch("http://localhost:3000/alarms")
-            .then(res => res.json())
-            .then(data => setAlarms(data))
-            .catch(err => console.error(err));
-
-        fetch("http://localhost:3000/incidents")
-            .then(res => res.json())
-            .then(data => setIncidents(data))
-            .catch(err => console.error(err));
+            // Acum incidentsData va avea proprietatea .alarms pe care o folosești aici:
+            const siteIds = new Set<string>(
+                incidentsData
+                    .flatMap(i => i.alarms ? i.alarms.map(a => a.site) : [])
+                    .filter(Boolean)
+            );
+            setIncidentSites(siteIds);
+        }).catch(err => console.error(err));
     }, []);
-
 
     return (
         <div className="flex flex-col h-screen bg-[#060010]">
-            {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-0">
                 <div>
                     <h1 className="text-white text-2xl font-bold mb-1">Sites</h1>
@@ -83,7 +89,6 @@ const MapPage = () => {
                 </div>
             </div>
 
-            {/* Content */}
             <div className="flex flex-1 gap-6 p-6 overflow-hidden">
                 {view !== "map" && (
                     <div className={view === "list" ? "w-full" : "w-[45%]"}>
@@ -92,7 +97,13 @@ const MapPage = () => {
                 )}
                 <div className={`rounded-2xl overflow-hidden transition-all duration-300
                     ${view === "list" ? "w-0 opacity-0" : view === "map" ? "w-full" : "w-[55%]"}`}>
-                    <MapView view={view} sites={sites} alarms={alarms} incidents={incidents} />
+                    <MapView
+                        view={view}
+                        sites={sites}
+                        standalone_alarms={standaloneAlarms}
+                        incidents={incidents}
+                        incidentSites={incidentSites}
+                    />
                 </div>
             </div>
         </div>

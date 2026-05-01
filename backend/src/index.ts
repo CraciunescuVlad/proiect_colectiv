@@ -93,23 +93,23 @@ app.get("/sites", async (req: Request, res: Response) => {
     res.json(data)
 })
 
-// GET un site după id (ex: /sites/A001)
-app.get("/sites/:id", async (req: Request, res: Response) => {
-    const { id } = req.params
-
-    const { data, error } = await supabase
-        .from("site")
-        .select("id, latitudine, longitude, city, address")
-        .eq("id", id)
-        .single()
-
-    if (error) {
-        res.status(404).json({ message: "Site negăsit" })
-        return
-    }
-
-    res.json(data)
-})
+// // GET un site după id (ex: /sites/A001)
+// app.get("/sites/:id", async (req: Request, res: Response) => {
+//     const { id } = req.params
+//
+//     const { data, error } = await supabase
+//         .from("site")
+//         .select("id, latitudine, longitude, city, address")
+//         .eq("id", id)
+//         .single()
+//
+//     if (error) {
+//         res.status(404).json({ message: "Site negăsit" })
+//         return
+//     }
+//
+//     res.json(data)
+// })
 
 // GET toate alarmele
 app.get("/alarms", async (req: Request, res: Response) => {
@@ -125,12 +125,44 @@ app.get("/alarms", async (req: Request, res: Response) => {
     res.json(data)
 })
 
+app.get("/standalone_alarms", async (req: Request, res: Response) => {
+    try {
+        // 1. Extrage ID-urile tuturor alarmelor care fac parte din incidente active
+        const { data: incidentAlarms, error: iaError } = await supabase
+            .from("incident_alarms")
+            .select("alarm_id");
+
+        if (iaError) throw iaError;
+
+        // Creăm o listă cu ID-urile alarmelor ocupate
+        const busyAlarmIds = incidentAlarms.map(ia => ia.alarm_id);
+
+        // 2. Extrage alarmele active care NU sunt în lista de mai sus
+        let query = supabase
+            .from("alarms")
+            .select("alarm_id, status, start_time, type, tehnologie, site")
+            .eq("status", 1); // Doar alarme active
+
+        // Dacă avem alarme în incidente, le excludem
+        if (busyAlarmIds.length > 0) {
+            query = query.not("alarm_id", "in", `(${busyAlarmIds.join(",")})`);
+        }
+
+        const { data: standaloneAlarms, error: alarmError } = await query;
+
+        if (alarmError) throw alarmError;
+
+        res.json(standaloneAlarms);
+    } catch (error: any) {
+        res.status(500).json({ message: error.message });
+    }
+});
 
 // GET toate incidentele
 app.get("/incidents", async (req: Request, res: Response) => {
     const { data, error } = await supabase
         .from("incidents")
-        .select("incident_id, alarm_id, status, start_time, end_time, urgency, impact, priority, assigned_to")
+        .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
 
     if (error) {
         res.status(500).json({ message: error.message })
@@ -139,6 +171,60 @@ app.get("/incidents", async (req: Request, res: Response) => {
 
     res.json(data)
 })
+
+//incidente active
+app.get("/active_incidents", async (req: Request, res: Response) => {
+    const { data: incidents, error: incError } = await supabase
+        .from("incidents")
+        .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
+        .eq("status", 1)
+
+    if (incError) {
+        res.status(500).json({ message: incError.message })
+        return
+    }
+    if (!incidents || incidents.length === 0) {
+        return res.json([]);
+    }
+
+    const incidentIds = incidents.map(i => i.incident_id);
+
+    // Ia toate legaturile din incident_alarms
+    const { data: incidentAlarms, error: iaError } = await supabase
+        .from("incident_alarms")
+        .select("incident_id, alarm_id")
+        .in("incident_id", incidentIds)
+
+    if (iaError) {
+        res.status(500).json({ message: iaError.message })
+        return
+    }
+
+    const alarmIds = incidentAlarms.map(ia => ia.alarm_id);
+
+    // Ia toate alarmele asociate
+    const { data: alarms, error: alarmError } = await supabase
+        .from("alarms")
+        .select("alarm_id, site, tehnologie, type, status")
+        .in("alarm_id", alarmIds)
+
+    if (alarmError) {
+        res.status(500).json({ message: alarmError.message })
+        return
+    }
+
+    // Combini: fiecare incident primeste array de alarme
+    const result = incidents.map(i => ({
+        ...i,
+        alarms: incidentAlarms
+            .filter(ia => ia.incident_id === i.incident_id)
+            .map(ia => alarms.find(a => a.alarm_id === ia.alarm_id))
+            .filter(Boolean)
+    }));
+
+    res.json(result)
+})
+
 
 
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))
