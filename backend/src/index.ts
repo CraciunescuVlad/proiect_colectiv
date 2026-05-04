@@ -23,18 +23,19 @@ const supabase = createClient(
 app.use("/dashboard", createDashboardRouter(supabase));
 
 const runScript = () => {
-  exec("python ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
+  exec("py ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
     if (error) { console.error("Script error:", error.message); return; }
     if (stdout) console.log(stdout);
     if (stderr) console.error(stderr);
     
-    exec("python ../script_alarme/incidente.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
+    exec("py ../script_alarme/incidente.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
       if (error) { console.error("Script error:", error.message); return; }
       if (stdout) console.log(stdout);
       if (stderr) console.error(stderr);
     });
   });
 };
+
 
 
 cron.schedule("*/5 * * * *", runScript);
