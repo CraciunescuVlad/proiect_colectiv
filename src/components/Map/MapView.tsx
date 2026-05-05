@@ -11,9 +11,10 @@ interface MapViewProps {
     standalone_alarms: Alarm[];
     incidents: Incident[];
     incidentSites: Set<string>;
+    onMarkerClick: (siteId: string) => void;
 }
 
-const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites }: MapViewProps) => {
+const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onMarkerClick }: MapViewProps) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
 
@@ -130,8 +131,9 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites }: M
 
                 const marker = new mapboxgl.Marker(el)
                     .setLngLat([site.longitude, site.latitudine])
-                    .setPopup(popup)
                     .addTo(map.current!);
+
+                el.addEventListener("click", () => onMarkerClick(site.id));
 
                 markers.push(marker);
             });

@@ -4,6 +4,7 @@ import StatCard from "./StatCard";
 import IncidentChart from "./IncidentChart";
 import { ArrowDownToLine, Calendar, ChevronDown } from "lucide-react";
 import { locations } from "../../data/locations";
+import IncidentsTable from "./IncidentsTable.tsx";
 
 const Home = () => {
     const { loading: statsLoading } = useAlarms();
@@ -45,6 +46,9 @@ const Home = () => {
 
             {/* Chart */}
             <IncidentChart />
+
+            {/* Table */}
+            <IncidentsTable />
 
         </div>
     );

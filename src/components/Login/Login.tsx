@@ -24,6 +24,7 @@ const Login = () => {
             }
 
             localStorage.setItem("token", data.token);
+            localStorage.setItem("user", JSON.stringify(data.user));
             navigate("/home");
         } catch (err) {
             setError("Something went wrong. Try again.");

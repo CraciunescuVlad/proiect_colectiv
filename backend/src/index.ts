@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import cron from "node-cron";
 import { exec } from "child_process";
 import createDashboardRouter from "./routes/dashboard";
+import createMapRouter from "./routes/map";
 
 
 dotenv.config();
@@ -21,6 +22,7 @@ const supabase = createClient(
 );
 
 app.use("/dashboard", createDashboardRouter(supabase));
+app.use("/map", createMapRouter(supabase));
 
 const runScript = () => {
   exec("py ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
@@ -161,9 +163,17 @@ app.get("/standalone_alarms", async (req: Request, res: Response) => {
 
 // GET toate incidentele
 app.get("/incidents", async (req: Request, res: Response) => {
-    const { data, error } = await supabase
+    const { status } = req.query;
+
+    let query = supabase
         .from("incidents")
         .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
+
+    if (status !== undefined) {
+        query = query.eq("status", Number(status))
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         res.status(500).json({ message: error.message })
@@ -225,6 +235,42 @@ app.get("/active_incidents", async (req: Request, res: Response) => {
 
     res.json(result)
 })
+
+app.patch("/incidents/:id/assign", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { assigned_to } = req.body;
+    console.log("Assigning incident", id, "to", assigned_to);
+
+    const { data, error } = await supabase
+        .from("incidents")
+        .update({ assigned_to })
+        .eq("incident_id", id)
+        .select()
+        .single();
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data);
+});
+
+app.get("/users/:id", async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const { data, error } = await supabase.auth.admin.getUserById(id);
+
+    if (error || !data.user) {
+        res.status(404).json({ message: "User not found" });
+        return;
+    }
+
+    res.json({
+        id: data.user.id,
+        email: data.user.email,
+    });
+});
 
 
 

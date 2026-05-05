@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import MapView from "./MapView";
 import IncidentList from "./IncidentList";
+import SiteDetailsSidebar from "./SiteDetailsSidebar";
 
 type View = "list" | "split" | "map";
 const views: View[] = ["list", "split", "map"];
@@ -40,12 +41,19 @@ export type Incident = {
     }[];
 }
 
+export type SelectedSite = {
+    site: Site;
+    incident: Incident | null;
+    standaloneAlarms: Alarm[];
+}
+
 const MapPage = () => {
     const [view, setView] = useState<View>("split");
     const [sites, setSites] = useState<Site[]>([]);
     const [standaloneAlarms, setStandaloneAlarms] = useState<Alarm[]>([]);
     const [incidents, setIncidents] = useState<Incident[]>([]);
     const [incidentSites, setIncidentSites] = useState<Set<string>>(new Set());
+    const [selectedSite, setSelectedSite] = useState<SelectedSite | null>(null);
 
     useEffect(() => {
         Promise.all([
@@ -65,6 +73,16 @@ const MapPage = () => {
             setIncidentSites(siteIds);
         }).catch(err => console.error(err));
     }, []);
+
+    const handleMarkerClick = (siteId: string) => {
+        const site = sites.find(s => s.id === siteId);
+        if (!site) return;
+
+        const incident = incidents.find(i => i.alarms?.some(a => a.site === siteId)) ?? null;
+        const siteAlarms = standaloneAlarms.filter(a => a.site === siteId);
+
+        setSelectedSite({ site, incident, standaloneAlarms: siteAlarms });
+    };
 
     return (
         <div className="flex flex-col h-screen bg-[#060010]">
@@ -93,15 +111,24 @@ const MapPage = () => {
                         <IncidentList sites={sites} />
                     </div>
                 )}
-                <div className={`rounded-2xl overflow-hidden transition-all duration-300
-                    ${view === "list" ? "w-0 opacity-0" : view === "map" ? "w-full" : "w-[55%]"}`}>
-                    <MapView
-                        view={view}
-                        sites={sites}
-                        standalone_alarms={standaloneAlarms}
-                        incidents={incidents}
-                        incidentSites={incidentSites}
-                    />
+                <div className={`rounded-2xl overflow-hidden transition-all duration-300 h-full flex
+                                ${view === "list" ? "w-0 opacity-0" : view === "map" ? "w-full" : "w-[55%]"}`}>
+                    <div className="flex-1 min-w-0 h-full">
+                        <MapView
+                            view={view}
+                            sites={sites}
+                            standalone_alarms={standaloneAlarms}
+                            incidents={incidents}
+                            incidentSites={incidentSites}
+                            onMarkerClick={handleMarkerClick}
+                        />
+                    </div>
+                    {selectedSite && (
+                        <SiteDetailsSidebar
+                            selectedSite={selectedSite}
+                            onClose={() => setSelectedSite(null)}
+                        />
+                    )}
                 </div>
             </div>
         </div>
