@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import LineChartCard from "./LineChartCard";
 import DateRangePicker from "./DateRangePicker";
+import IncidentsByPriorityChart from "./IncidentsByPriorityChart";
+import AlarmsBySeverityChart from "./AlarmsBySeverityChart";
 
 const getDefaultRange = (): DateRange => {
     const to = new Date();
@@ -29,6 +31,9 @@ const Statistics = () => {
                     from={range?.from}
                     to={range?.to}
                 />
+
+                <IncidentsByPriorityChart from={range?.from} to={range?.to} />
+
                 <LineChartCard
                     endpoint="alarms"
                     title="Alarms in the selected range"
@@ -37,6 +42,8 @@ const Statistics = () => {
                     from={range?.from}
                     to={range?.to}
                 />
+
+                <AlarmsBySeverityChart from={range?.from} to={range?.to} />
             </div>
         </div>
     );
