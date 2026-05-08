@@ -7,7 +7,7 @@ import cron from "node-cron";
 import { exec } from "child_process";
 import createDashboardRouter from "./routes/dashboard";
 import createMapRouter from "./routes/map";
-
+import createStatisticsRouter from "./routes/statistics";
 
 dotenv.config();
 
@@ -23,6 +23,7 @@ const supabase = createClient(
 
 app.use("/dashboard", createDashboardRouter(supabase));
 app.use("/map", createMapRouter(supabase));
+app.use("/statistics", createStatisticsRouter(supabase));
 
 const runScript = () => {
   exec("py ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {

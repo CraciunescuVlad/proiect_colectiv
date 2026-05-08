@@ -32,6 +32,7 @@ import MainLayout from "../layouts/MainLayout";
 import Home from "../components/Home/Home";
 import MapPage from "../components/Map/MapPage";
 import ProtectedRoute from "../components/ProtectedRoute";
+import Statistics from "../components/Statistics/Statistics";
 
 const routes: RouteObject[] = [
     {
@@ -49,6 +50,7 @@ const routes: RouteObject[] = [
         children: [
             { path: "/home", element: <Home /> },
             { path: "/harta", element: <MapPage /> },
+            { path: "/statistics", element: <Statistics /> },
         ],
     },
 ];
