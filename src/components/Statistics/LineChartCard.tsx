@@ -2,7 +2,7 @@ import {
     LineChart, Line, XAxis, YAxis,
     CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import useChartData from "./useChartData";
+import useChartData from "../../hooks/useChartDataStat";
 
 type Props = {
     endpoint: string;

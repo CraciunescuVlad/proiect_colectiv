@@ -119,68 +119,136 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
     })
 
     // Returns the number of incidents per day, split by priority
-// Each day contains keys: warning, minor, major, critical
-router.get("/incidents/chart-by-priority", async (req: Request, res: Response) => {
-    const { from, to } = req.query;
+    // Each day contains keys: warning, minor, major, critical
+    router.get("/alarms/chart-by-severity", async (req: Request, res: Response) => {
+        const { from, to } = req.query;
 
-    let startDate: Date;
-    let endDate: Date;
+        let startDate: Date;
+        let endDate: Date;
 
-    if (from && to && typeof from === "string" && typeof to === "string") {
-        startDate = new Date(`${from}T00:00:00`);
-        endDate = new Date(`${to}T23:59:59.999`);
-    } else {
-        endDate = new Date();
-        startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    }
+        if (from && to && typeof from === "string" && typeof to === "string") {
+            startDate = new Date(`${from}T00:00:00`);
+            endDate = new Date(`${to}T23:59:59.999`);
+        } else {
+            endDate = new Date();
+            startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        }
 
-    const { data, error } = await supabase
-        .from("incidents")
-        .select("start_time, priority")
-        .gte("start_time", startDate.toISOString())
-        .lte("start_time", endDate.toISOString())
+        const { data, error } = await supabase
+            .from("alarms")
+            .select("start_time, alarm_types(severity)")
+            .gte("start_time", startDate.toISOString())
+            .lte("start_time", endDate.toISOString())
 
-    if (error) {
-        res.status(500).json({ message: error.message })
-        return
-    }
+        if (error) {
+            res.status(500).json({ message: error.message })
+            return
+        }
 
-    // Count incidents per (day, priority)
-    const grouped: Record<string, Record<string, number>> = {}
-    data.forEach((incident: any) => {
-        const date = new Date(incident.start_time).toLocaleDateString("ro-RO", {
-            day: "2-digit",
-            month: "2-digit",
+        const severityLabel = (s: number): "Low" | "Medium" | "High" | null => {
+            if (s === 1) return "Low";
+            if (s === 2) return "Medium";
+            if (s === 3) return "High";
+            return null;
+        };
+        // Count incidents per (day, priority)
+        const grouped: Record<string, Record<string, number>> = {}
+        data.forEach((alarm: any) => {
+            const date = new Date(alarm.start_time).toLocaleDateString("ro-RO", {
+                day: "2-digit",
+                month: "2-digit",
+            })
+            if (!grouped[date]) {
+                grouped[date] = { Low: 0, Medium: 0, High: 0 };
+            }
+            const sev = alarm.alarm_types?.severity;
+            const label = severityLabel(sev);
+            if (label) {
+                grouped[date][label] += 1;
+            }
         })
-        if (!grouped[date]) {
-            grouped[date] = { warning: 0, minor: 0, major: 0, critical: 0 };
+
+        // Generate all days in the interval, filling missing ones with zeroes
+        const result: { date: string; Low: number; Medium: number; High: number }[] = [];
+        const cursor = new Date(startDate);
+        cursor.setHours(0, 0, 0, 0);
+        const lastDay = new Date(endDate);
+        lastDay.setHours(0, 0, 0, 0);
+
+        while (cursor <= lastDay) {
+            const label = cursor.toLocaleDateString("ro-RO", {
+                day: "2-digit",
+                month: "2-digit",
+            });
+            const day = grouped[label] ?? { Low: 0, Medium: 0, High: 0 };
+            result.push({ date: label, ...day });
+            cursor.setDate(cursor.getDate() + 1);
         }
-        const p = incident.priority;
-        if (p === "warning" || p === "minor" || p === "major" || p === "critical") {
-            grouped[date][p] += 1;
-        }
+
+        res.json(result)
     })
 
-    // Generate all days in the interval, filling missing ones with zeroes
-    const result: { date: string; warning: number; minor: number; major: number; critical: number }[] = [];
-    const cursor = new Date(startDate);
-    cursor.setHours(0, 0, 0, 0);
-    const lastDay = new Date(endDate);
-    lastDay.setHours(0, 0, 0, 0);
+    router.get("/incidents/chart-by-priority", async (req: Request, res: Response) => {
+        const { from, to } = req.query;
 
-    while (cursor <= lastDay) {
-        const label = cursor.toLocaleDateString("ro-RO", {
-            day: "2-digit",
-            month: "2-digit",
-        });
-        const day = grouped[label] ?? { warning: 0, minor: 0, major: 0, critical: 0 };
-        result.push({ date: label, ...day });
-        cursor.setDate(cursor.getDate() + 1);
-    }
+        let startDate: Date;
+        let endDate: Date;
 
-    res.json(result)
-})
-    
+        if (from && to && typeof from === "string" && typeof to === "string") {
+            startDate = new Date(`${from}T00:00:00`);
+            endDate = new Date(`${to}T23:59:59.999`);
+        } else {
+            endDate = new Date();
+            startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        }
+
+        const { data, error } = await supabase
+            .from("incidents")
+            .select("start_time, priority")
+            .gte("start_time", startDate.toISOString())
+            .lte("start_time", endDate.toISOString())
+
+        if (error) {
+            res.status(500).json({ message: error.message })
+            return
+        }
+
+        // Count incidents per (day, priority)
+        const grouped: Record<string, Record<string, number>> = {}
+        data.forEach((incident: any) => {
+            const date = new Date(incident.start_time).toLocaleDateString("ro-RO", {
+                day: "2-digit",
+                month: "2-digit",
+            })
+            if (!grouped[date]) {
+                grouped[date] = { Warning: 0, Minor: 0, Major: 0, Critical: 0 };
+            }
+            const p = incident.priority;
+            if (p === "Warning" || p === "Minor" || p === "Major" || p === "Critical") {
+                grouped[date][p] += 1;
+            }
+        })
+
+        // Generate all days in the interval, filling missing ones with zeroes
+        const result: { date: string; Warning: number; Minor: number; Major: number; Vritical: number }[] = [];
+        const cursor = new Date(startDate);
+        cursor.setHours(0, 0, 0, 0);
+        const lastDay = new Date(endDate);
+        lastDay.setHours(0, 0, 0, 0);
+
+        while (cursor <= lastDay) {
+            const label = cursor.toLocaleDateString("ro-RO", {
+                day: "2-digit",
+                month: "2-digit",
+            });
+            const day = grouped[label] ?? { Warning: 0, Minor: 0, Major: 0, Critical: 0 };
+            result.push({ date: label, ...day });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        res.json(result)
+    })
+
     return router;
 }
 
