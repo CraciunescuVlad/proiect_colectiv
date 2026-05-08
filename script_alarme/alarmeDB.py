@@ -14,6 +14,19 @@ rows = []
 load_dotenv()
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
 
+def get_all_alarm_ids():
+    all_ids = []
+    page_size = 1000
+    offset = 0
+    while True:
+        batch = supabase.table("alarms").select("alarm_id").range(offset, offset + page_size - 1).execute().data
+        if not batch:
+            break
+        all_ids.extend(row["alarm_id"] for row in batch)
+        if len(batch) < page_size:
+            break
+        offset += page_size
+    return all_ids
 #returneaza setul cu alarmele active cele mai vechi din incidente (cele care "l-au generat")
 def get_oldest_alarm_per_active_incident():
 
@@ -281,8 +294,7 @@ def insert_incident_alarms(links):
 # dupa atasare, recalculeaza priority pentru incidentele care au primit alarme noi
 def deploy_new_alarms():
 
-    alarm_id_existente = [row["alarm_id"] for row in supabase.table("alarms").select("alarm_id").execute().data]
-
+    alarm_id_existente = get_all_alarm_ids()
     site_id = [row["id"] for row in supabase.table("site").select("id").execute().data]
     print(f"Site-uri incarcate: {len(site_id)}")
 
