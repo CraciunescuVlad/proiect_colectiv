@@ -230,7 +230,7 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         })
 
         // Generate all days in the interval, filling missing ones with zeroes
-        const result: { date: string; Warning: number; Minor: number; Major: number; Vritical: number }[] = [];
+        const result: { date: string; Warning: number; Minor: number; Major: number; Critical: number }[] = [];
         const cursor = new Date(startDate);
         cursor.setHours(0, 0, 0, 0);
         const lastDay = new Date(endDate);
@@ -242,7 +242,87 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
                 month: "2-digit",
             });
             const day = grouped[label] ?? { Warning: 0, Minor: 0, Major: 0, Critical: 0 };
-            result.push({ date: label, ...day });
+            result.push({
+                date: label,
+                Warning: day.Warning,
+                Minor: day.Minor,
+                Major: day.Major,
+                Critical: day.Critical,
+            });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        res.json(result)
+    })
+
+    // Returns the average resolution time (in minutes) of incidents per day
+    // Uses end_time as the grouping date (the day the incident was resolved)
+    // Days without resolved incidents return 0
+    router.get("/incidents/avg-resolution/chart", async (req: Request, res: Response) => {
+        const { from, to } = req.query;
+
+        let startDate: Date;
+        let endDate: Date;
+
+        if (from && to && typeof from === "string" && typeof to === "string") {
+            startDate = new Date(`${from}T00:00:00`);
+            endDate = new Date(`${to}T23:59:59.999`);
+        } else {
+            endDate = new Date();
+            startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        }
+
+        const { data, error } = await supabase
+            .from("incidents")
+            .select("start_time, end_time")
+            .not("end_time", "is", null)
+            .gte("end_time", startDate.toISOString())
+            .lte("end_time", endDate.toISOString())
+
+        if (error) {
+            res.status(500).json({ message: error.message })
+            return
+        }
+
+        // Sum durations and counts per day, so we can compute the average later
+        const grouped: Record<string, { totalMinutes: number; count: number }> = {}
+        data.forEach((incident: any) => {
+            const start = new Date(incident.start_time).getTime();
+            const end = new Date(incident.end_time).getTime();
+            const durationMinutes = (end - start) / (1000 * 60);
+
+            if (durationMinutes < 0)
+                return;
+
+            const date = new Date(incident.end_time).toLocaleDateString("ro-RO", {
+                day: "2-digit",
+                month: "2-digit",
+            })
+            if (!grouped[date]) {
+                grouped[date] = { totalMinutes: 0, count: 0 };
+            }
+            grouped[date].totalMinutes += durationMinutes;
+            grouped[date].count += 1;
+        })
+
+        // Generate all days in the interval, computing the average per day
+        const result: { date: string; value: number }[] = [];
+        const cursor = new Date(startDate);
+        cursor.setHours(0, 0, 0, 0);
+        const lastDay = new Date(endDate);
+        lastDay.setHours(0, 0, 0, 0);
+
+        while (cursor <= lastDay) {
+            const label = cursor.toLocaleDateString("ro-RO", {
+                day: "2-digit",
+                month: "2-digit",
+            });
+            const day = grouped[label];
+            let avg = 0;
+            if (day && day.count > 0) {
+                avg = Math.round(day.totalMinutes / day.count);
+            }
+            result.push({ date: label, value: avg });
             cursor.setDate(cursor.getDate() + 1);
         }
 

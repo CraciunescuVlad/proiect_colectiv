@@ -27,7 +27,7 @@ const Statistics = () => {
                     endpoint="incidents"
                     title="Incidents in the selected range"
                     unit="incidents"
-                    color="#f472b6"
+                    color="#c70606"
                     from={range?.from}
                     to={range?.to}
                 />
@@ -35,15 +35,26 @@ const Statistics = () => {
                 <IncidentsByPriorityChart from={range?.from} to={range?.to} />
 
                 <LineChartCard
+                    endpoint="incidents/avg-resolution"
+                    title="Average incident resolution time"
+                    unit="minutes"
+                    color="#c70606"
+                    from={range?.from}
+                    to={range?.to}
+                />
+
+                <LineChartCard
                     endpoint="alarms"
                     title="Alarms in the selected range"
                     unit="alarms"
-                    color="#818cf8"
+                    color="#a263f4"
                     from={range?.from}
                     to={range?.to}
                 />
 
                 <AlarmsBySeverityChart from={range?.from} to={range?.to} />
+
+
             </div>
         </div>
     );
