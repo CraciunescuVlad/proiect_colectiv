@@ -1,20 +1,41 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import type { Alarm,Site } from "./MapPage";
+import type { Alarm, Site, Incident } from "./MapPage";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
 interface MapViewProps {
     view: string;
     sites: Site[];
-    alarms: Alarm[];
+    standalone_alarms: Alarm[];
+    incidents: Incident[];
+    incidentSites: Set<string>;
+    onMarkerClick: (siteId: string) => void;
+    selectedTechs: string[];
+    availableTechs: string[];
+    onTechFilter: (techs: string[]) => void;
+}
+type AlarmInfo = {
+    alarm_name: string;
+    description: string;
+    recommended_action: string;
+}
+declare global {
+    interface Window {
+        openAlarmDetails?: (alarmType: string) => Promise<void>;
+    }
 }
 
-const MapView = ({ view, sites, alarms }: MapViewProps) => {
+
+const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onMarkerClick , selectedTechs,availableTechs,onTechFilter}: MapViewProps) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
 
+    const [selectedAlarmInfo, setSelectedAlarmInfo] = useState<AlarmInfo | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // 1. Inițializare Harta si functie globala pentru Click-uri din Popup
     useEffect(() => {
         if (map.current || !mapContainer.current) return;
 
@@ -26,65 +47,155 @@ const MapView = ({ view, sites, alarms }: MapViewProps) => {
         });
 
         map.current.addControl(new mapboxgl.NavigationControl());
+
+
+        // Expunem funcția global pentru a putea fi apelată din HTML-ul injectat de Mapbox
+        window.openAlarmDetails = async (alarmType: string) => {
+            try {
+                const res = await fetch(`http://localhost:3000/alarm_details/${alarmType}`);
+                const data = await res.json();
+                setSelectedAlarmInfo(data);
+                setIsModalOpen(true);
+            } catch (err) {
+                console.error("Error fetching alarm details:", err);
+            }
+        };
+
+        return () => {
+            delete window.openAlarmDetails;
+        };
     }, []);
 
+    // 2. Gestionare Markeri
     useEffect(() => {
-        if (!map.current || sites.length === 0 || alarms.length === 0) return;
-
-        const siteIdsWithAlarms = new Set(alarms.filter(a => a.status === 1).map(a => a.site));
+        if (!map.current || sites.length === 0) return;
 
 
         const markers: mapboxgl.Marker[] = [];
 
-        const addMarkers = () => {
+        const updateMarkers = () => {
+            // Curata markerii vechi
+            markers.forEach(m => m.remove());
+
             sites.forEach((site) => {
-                const hasAlarm = siteIdsWithAlarms.has(site.id);
+                const hasIncident = incidentSites.has(site.id);
+                // Filtram alarmele standalone specifice acestui site
+                const siteStandaloneAlarms = standalone_alarms.filter(a =>
+                    a.site === site.id &&
+                    (selectedTechs.length === 0 || selectedTechs.includes(a.tehnologie))
+                );                const hasStandalone = siteStandaloneAlarms.length > 0;
 
                 const el = document.createElement("div");
-                el.innerHTML = hasAlarm
-                    ? `<svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
-                       <rect width="14" height="14" fill="#8b5cf6" stroke="white" stroke-width="1.5"/>
-                   </svg>`
-                    : `<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                       <polygon points="8,0 16,16 0,16" fill="#3b82f6" stroke="white" stroke-width="1.5"/>
-                   </svg>`;
-                el.style.cursor = "pointer";
+                el.className = "marker-container";
 
-                const popup = new mapboxgl.Popup({ offset: 12 })
-                    .setHTML(`
-                    <div style="background:#0a0015; color:white; padding:10px; border-radius:8px; font-family:sans-serif;">
-                        <strong style="font-size:13px;">${site.city}</strong>
-                        <p style="font-size:11px; color:#aaa; margin:4px 0 0;">${site.address}</p>
-                        ${hasAlarm ? `<span style="font-size:11px; color:#3b82f6;">● Has active alarm</span>` : ""}
-                    </div>
-                `);
+                // Logica vizuala a markerului
+                if (hasIncident) {
+                    el.innerHTML = `<svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#ef4444" stroke="white" stroke-width="1.5"/></svg>`;
+                } else if (hasStandalone) {
+                    el.innerHTML = `<svg width="14" height="14"><rect width="14" height="14" fill="#8b5cf6" stroke="white" stroke-width="1.5"/></svg>`;
+                } else {
+                    el.innerHTML = `<svg width="16" height="16"><polygon points="8,0 16,16 0,16" fill="#3b82f6" stroke="white" stroke-width="1.5"/></svg>`;
+                }
+
 
                 const marker = new mapboxgl.Marker(el)
                     .setLngLat([site.longitude, site.latitudine])
-                    .setPopup(popup)
                     .addTo(map.current!);
+
+                el.addEventListener("click", () => onMarkerClick(site.id));
 
                 markers.push(marker);
             });
         };
 
-        if (map.current.isStyleLoaded()) {
-            addMarkers();
-        } else {
-            map.current.on("load", addMarkers);
-        }
+        if (map.current.isStyleLoaded()) updateMarkers();
+        else map.current.once("load", updateMarkers);
 
         return () => {
             markers.forEach(m => m.remove());
         };
-
-    }, [sites, alarms]);
+    }, [sites, standalone_alarms, incidents, incidentSites,selectedTechs]);
 
     useEffect(() => {
         setTimeout(() => map.current?.resize(), 300);
     }, [view]);
 
-    return <div ref={mapContainer} className="w-full h-full" />;
+    const technologyColors: Record<string, string> = {
+        "2G": "#16a34a",
+        "3G": "#2563eb",
+        "4G": "#a21caf",
+        "5G": "#dc2626",
+    };
+
+    const toggleTech = (tech: string) => {
+        onTechFilter(
+            selectedTechs.includes(tech)
+                ? selectedTechs.filter(t => t !== tech)
+                : [...selectedTechs, tech]
+        );
+    };
+
+    return (
+        <div className="relative w-full h-full flex flex-col">
+
+            {/* Filter bar */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border-b border-white/10 flex-wrap shrink-0">
+                <span className="text-white/40 text-xs">Tehnologie:</span>
+                {availableTechs.map(tech => {
+                    const isActive = selectedTechs.includes(tech);
+                    const color = technologyColors[tech] ?? "#7c3aed";
+                    return (
+                        <button
+                            key={tech}
+                            onClick={() => toggleTech(tech)}
+                            style={{
+                                borderColor: color,
+                                backgroundColor: isActive ? color : "transparent",
+                                color: isActive ? "white" : color,
+                            }}
+                            className="text-xs px-3 py-1 rounded-full border transition-all"
+                        >
+                            {tech}
+                        </button>
+                    );
+                })}
+                {selectedTechs.length > 0 && (
+                    <button
+                        onClick={() => onTechFilter([])}
+                        className="text-xs px-3 py-1 rounded-full border border-white/20 text-white/40 hover:text-white transition-all ml-auto"
+                    >
+                        Reset
+                    </button>
+                )}
+            </div>
+
+            {/* Harta */}
+            <div className="relative flex-1">
+                <div ref={mapContainer} className="w-full h-full" />
+
+                {isModalOpen && selectedAlarmInfo && (
+                    <div className="absolute inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                        <div className="bg-[#1a1025] border border-white/20 p-6 rounded-2xl max-w-md w-full mx-4 shadow-2xl text-white">
+                            <div className="flex justify-between items-start mb-4">
+                                <h2 className="text-xl font-bold text-purple-400">{selectedAlarmInfo.alarm_name}</h2>
+                                <button onClick={() => setIsModalOpen(false)} className="text-white/50 hover:text-white text-2xl leading-none">&times;</button>
+                            </div>
+                            <div className="space-y-4 text-sm">
+                                <p><span className="text-white/40">Descriere:</span><br />{selectedAlarmInfo.description}</p>
+                                <p><span className="text-white/40">Acțiune Recomandată:</span><br />{selectedAlarmInfo.recommended_action}</p>
+                            </div>
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="mt-6 w-full py-2 bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                            >
+                                Închide
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 };
 
 export default MapView;

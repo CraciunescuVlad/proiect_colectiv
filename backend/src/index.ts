@@ -23,39 +23,57 @@ const supabase = createClient(
 );
 
 app.use("/dashboard", createDashboardRouter(supabase));
+app.use("/map", createMapRouter(supabase));
+app.use("/statistics", createStatisticsRouter(supabase));
 
 const runScript = () => {
-  exec("python ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
+  exec("py ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
     if (error) { console.error("Script error:", error.message); return; }
     if (stdout) console.log(stdout);
     if (stderr) console.error(stderr);
+    
+    exec("py ../script_alarme/incidente.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
+      if (error) { console.error("Script error:", error.message); return; }
+      if (stdout) console.log(stdout);
+      if (stderr) console.error(stderr);
+    });
   });
 };
+
+
 
 cron.schedule("*/5 * * * *", runScript);
 runScript();
 app.post("/auth/login", async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  // Sign in with Supabase
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
 
-  if (error || !data.session) {
-    res.status(401).json({ message: "Invalid email or password" });
-    return;
-  }
+    if (error || !data.session) {
+        res.status(401).json({ message: "Invalid email or password" });
+        return;
+    }
 
-  // Return Supabase's own token (no need to generate JWT manually anymore)
-  res.json({
-    token: data.session.access_token,
-    user: {
-      id: data.user.id,
-      email: data.user.email,
-    },
-  });
+    // Fetch role from your custom users table
+    const { data: userData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
+    const role = userData?.role ?? "viewer";
+
+    res.json({
+        token: data.session.access_token,
+        user: {
+            id: data.user.id,
+            email: data.user.email,
+            role,
+        },
+    });
 });
 
 
@@ -89,23 +107,23 @@ app.get("/sites", async (req: Request, res: Response) => {
     res.json(data)
 })
 
-// GET un site după id (ex: /sites/A001)
-app.get("/sites/:id", async (req: Request, res: Response) => {
-    const { id } = req.params
-
-    const { data, error } = await supabase
-        .from("site")
-        .select("id, latitudine, longitude, city, address")
-        .eq("id", id)
-        .single()
-
-    if (error) {
-        res.status(404).json({ message: "Site negăsit" })
-        return
-    }
-
-    res.json(data)
-})
+// // GET un site după id (ex: /sites/A001)
+// app.get("/sites/:id", async (req: Request, res: Response) => {
+//     const { id } = req.params
+//
+//     const { data, error } = await supabase
+//         .from("site")
+//         .select("id, latitudine, longitude, city, address")
+//         .eq("id", id)
+//         .single()
+//
+//     if (error) {
+//         res.status(404).json({ message: "Site negăsit" })
+//         return
+//     }
+//
+//     res.json(data)
+// })
 
 // GET toate alarmele
 app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
@@ -160,7 +178,13 @@ app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
 
     let query = supabase
         .from("incidents")
-        .select("incident_id, alarm_id, status, start_time, end_time, urgency, impact, priority, assigned_to")
+        .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
+
+    if (status !== undefined) {
+        query = query.eq("status", Number(status))
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         res.status(500).json({ message: error.message })

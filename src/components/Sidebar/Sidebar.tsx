@@ -1,21 +1,24 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {BarChart2, Map, LogOut, LayoutDashboard} from "lucide-react";
+import { BarChart2, Map, LogOut, LayoutDashboard } from "lucide-react";
+import { useUser } from "../../context/UserContext";
 
 const Sidebar = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [expanded, setExpanded] = useState(false);
+    const { user } = useUser();
 
     const handleLogout = () => {
         localStorage.removeItem("token");
+        localStorage.removeItem("user");
         navigate("/login");
     };
 
     const navItems = [
         { label: "Dashboard", icon: <LayoutDashboard size={20} />, route: "/home" },
         { label: "Statistics", icon: <BarChart2 size={20} />, route: "/statistics" },
-        { label: "Map", icon: <Map size={20} />, route: "/map" },
+        { label: "Map", icon: <Map size={20} />, route: "/harta" },
     ];
 
     return (
@@ -29,7 +32,7 @@ const Sidebar = () => {
             <div>
                 <div className="mb-8 px-2 h-7 flex items-center overflow-hidden">
                     {expanded ? (
-                        <h1 className="text-white font-bold text-xl tracking-tight whitespace-nowrap">MyApp</h1>
+                        <h1 className="text-white font-bold text-xl tracking-tight whitespace-nowrap">AlarmUP</h1>
                     ) : (
                         <span className="text-white font-bold text-xl">M</span>
                     )}
@@ -52,8 +55,8 @@ const Sidebar = () => {
                                 <span className="shrink-0">{item.icon}</span>
                                 {expanded && (
                                     <span className="whitespace-nowrap overflow-hidden transition-all duration-300">
-                                {item.label}
-                              </span>
+                                        {item.label}
+                                    </span>
                                 )}
                             </button>
                         );
@@ -63,15 +66,17 @@ const Sidebar = () => {
 
             {/* Footer */}
             <div className={`flex items-center pt-4 border-t border-white/10 transition-all duration-300
-        ${expanded ? "justify-between px-2" : "justify-center flex-col gap-3"}`}
+                ${expanded ? "justify-between px-2" : "justify-center flex-col gap-3"}`}
             >
                 <img
-                    src={`https://api.dicebear.com/7.x/initials/svg?seed=User`}
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.email ?? "User"}`}
                     alt="Profile"
                     className="w-8 h-8 rounded-full bg-white/10 shrink-0"
                 />
                 {expanded && (
-                    <span className="text-white/70 text-sm font-medium whitespace-nowrap">Profile</span>
+                    <span className="text-white/70 text-sm font-medium whitespace-nowrap truncate max-w-[120px]">
+                        {user?.email ?? "User"}
+                    </span>
                 )}
                 <button
                     onClick={handleLogout}
