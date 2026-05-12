@@ -329,6 +329,133 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         res.json(result)
     })
 
+    // Returns the distribution of alarms by technology for a given date range
+    // Each entry: { name: "4G", value: 123 }
+    router.get("/alarms/by-technology", async (req: Request, res: Response) => {
+        const { from, to } = req.query;
+
+        let startDate: Date;
+        let endDate: Date;
+
+        if (from && to && typeof from === "string" && typeof to === "string") {
+            startDate = new Date(`${from}T00:00:00`);
+            endDate = new Date(`${to}T23:59:59.999`);
+        } else {
+            endDate = new Date();
+            startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        }
+
+        const { data, error } = await supabase
+            .from("alarms")
+            .select("tehnologie")
+            .gte("start_time", startDate.toISOString())
+            .lte("start_time", endDate.toISOString())
+
+        if (error) {
+            res.status(500).json({ message: error.message })
+            return
+        }
+
+        // Count alarms per technology
+        const counts: Record<string, number> = {};
+        data.forEach((alarm: any) => {
+            const tech = alarm.tehnologie ?? "Unknown";
+            counts[tech] = (counts[tech] || 0) + 1;
+        });
+
+        const result = Object.entries(counts).map(([name, value]) => ({ name, value }));
+        res.json(result);
+    })
+
+    // Returns the distribution of incidents by technology, derived from their linked alarms
+    // An incident with alarms on multiple technologies is counted once per distinct technology
+    router.get("/incidents/by-technology", async (req: Request, res: Response) => {
+        const { from, to } = req.query;
+
+        let startDate: Date;
+        let endDate: Date;
+
+        if (from && to && typeof from === "string" && typeof to === "string") {
+            startDate = new Date(`${from}T00:00:00`);
+            endDate = new Date(`${to}T23:59:59.999`);
+        } else {
+            endDate = new Date();
+            startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        }
+
+        // Step 1: get incidents in the interval
+        const { data: incidents, error: incError } = await supabase
+            .from("incidents")
+            .select("incident_id")
+            .gte("start_time", startDate.toISOString())
+            .lte("start_time", endDate.toISOString())
+
+        if (incError) {
+            res.status(500).json({ message: incError.message })
+            return
+        }
+        if (!incidents || incidents.length === 0) {
+            res.json([]);
+            return;
+        }
+
+        const incidentIds = incidents.map(i => i.incident_id);
+
+        // Step 2: get alarm IDs linked to those incidents
+        const { data: links, error: linkError } = await supabase
+            .from("incident_alarms")
+            .select("incident_id, alarm_id")
+            .in("incident_id", incidentIds)
+
+        if (linkError) {
+            res.status(500).json({ message: linkError.message })
+            return
+        }
+        if (!links || links.length === 0) {
+            res.json([]);
+            return;
+        }
+
+        const alarmIds = [...new Set(links.map(l => l.alarm_id))];
+
+        // Step 3: get the technology of each linked alarm
+        const { data: alarms, error: alarmError } = await supabase
+            .from("alarms")
+            .select("alarm_id, tehnologie")
+            .in("alarm_id", alarmIds)
+
+        if (alarmError) {
+            res.status(500).json({ message: alarmError.message })
+            return
+        }
+
+        const alarmTech: Record<string, string> = {};
+        alarms.forEach((a: any) => {
+            alarmTech[a.alarm_id] = a.tehnologie ?? "Unknown";
+        });
+
+        // Step 4: for each incident, collect the unique technologies of its alarms
+        const incidentTechs: Record<string, Set<string>> = {};
+        links.forEach(l => {
+            if (!incidentTechs[l.incident_id]) {
+                incidentTechs[l.incident_id] = new Set();
+            }
+            const tech = alarmTech[l.alarm_id];
+            if (tech) incidentTechs[l.incident_id].add(tech);
+        });
+
+        // Step 5: count incidents per technology
+        const counts: Record<string, number> = {};
+        Object.values(incidentTechs).forEach(techSet => {
+            techSet.forEach(tech => {
+                counts[tech] = (counts[tech] || 0) + 1;
+            });
+        });
+
+        const result = Object.entries(counts).map(([name, value]) => ({ name, value }));
+        res.json(result);
+    })
+
     return router;
 }
 
