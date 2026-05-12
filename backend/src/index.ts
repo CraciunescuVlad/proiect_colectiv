@@ -301,6 +301,48 @@ app.get("/users/:id", requireAuth, async (req: Request, res: Response) => {
     });
 });
 
+app.patch("/incidents/:id/message", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { messages } = req.body;
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+        res.status(401).json({ message: "No token provided" });
+        return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !userData.user) {
+        res.status(401).json({ message: "Invalid token" });
+        return;
+    }
+
+    const { data: roleData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userData.user.id)
+        .single();
+
+    if (roleData?.role !== "admin") {
+        res.status(403).json({ message: "Only admins can edit messages" });
+        return;
+    }
+
+    const { data, error } = await supabase
+        .from("incidents")
+        .update({ messages })
+        .eq("incident_id", id)
+        .select()
+        .single();
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data);
+});
 
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))
 
