@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import MapView from "./MapView";
 import IncidentList from "./IncidentList";
 import SiteDetailsSidebar from "./SiteDetailsSidebar";
+import { useUser } from "../../context/UserContext";
 
 type View = "list" | "split" | "map";
 const views: View[] = ["list", "split", "map"];
@@ -48,6 +49,7 @@ export type SelectedSite = {
 }
 
 const MapPage = () => {
+    const { token } = useUser();
     const [view, setView] = useState<View>("split");
     const [sites, setSites] = useState<Site[]>([]);
     const [standaloneAlarms, setStandaloneAlarms] = useState<Alarm[]>([]);
@@ -77,10 +79,14 @@ const MapPage = () => {
 
 
     useEffect(() => {
+        if (!token) return;
+
+        const headers = { Authorization: `Bearer ${token}` };
+
         Promise.all([
-            fetch("http://localhost:3000/sites").then(res => res.json()),
-            fetch("http://localhost:3000/standalone_alarms").then(res => res.json()),
-            fetch("http://localhost:3000/active_incidents").then(res => res.json()),
+            fetch("http://localhost:3000/sites", { headers }).then(res => res.json()),
+            fetch("http://localhost:3000/standalone_alarms", { headers }).then(res => res.json()),
+            fetch("http://localhost:3000/active_incidents", { headers }).then(res => res.json()),
         ]).then(([sitesData, alarmsData, incidentsData]: [Site[], Alarm[], Incident[]]) => {
             setSites(sitesData);
             setStandaloneAlarms(alarmsData);
@@ -93,7 +99,7 @@ const MapPage = () => {
             );
             setIncidentSites(siteIds);
         }).catch(err => console.error(err));
-    }, []);
+    }, [token]);
 
     const handleMarkerClick = (siteId: string) => {
         const site = sites.find(s => s.id === siteId);

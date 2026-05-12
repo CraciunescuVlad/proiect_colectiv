@@ -94,7 +94,7 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
 });
 
 // GET toate site-urile
-app.get("/sites", async (req: Request, res: Response) => {
+app.get("/sites", requireAuth, async (req: Request, res: Response) => {
     const { data, error } = await supabase
         .from("site")
         .select("id, latitudine, longitude, city, address")

@@ -1,17 +1,19 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext } from "react";
+import type { ReactNode } from "react";
 import useAuth from "../hooks/useAuth";
 
 interface UserContextType {
     user: { id: string; email: string; role: string } | null;
+    token: string | null;
     loading: boolean;
 }
 
-const UserContext = createContext<UserContextType>({ user: null, loading: true });
+const UserContext = createContext<UserContextType>({ user: null, token: null, loading: true });
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-    const { user, loading } = useAuth();
+    const { user, token, loading } = useAuth();
     return (
-        <UserContext.Provider value={{ user, loading }}>
+        <UserContext.Provider value={{ user, token, loading }}>
             {children}
         </UserContext.Provider>
     );
