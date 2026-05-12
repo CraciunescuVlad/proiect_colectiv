@@ -2,7 +2,7 @@ import { createContext, useContext, ReactNode } from "react";
 import useAuth from "../hooks/useAuth";
 
 interface UserContextType {
-    user: { id: string; email: string } | null;
+    user: { id: string; email: string; role: string } | null;
     loading: boolean;
 }
 

@@ -44,27 +44,35 @@ const runScript = () => {
 cron.schedule("*/5 * * * *", runScript);
 runScript();
 app.post("/auth/login", async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  // Sign in with Supabase
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
 
-  if (error || !data.session) {
-    res.status(401).json({ message: "Invalid email or password" });
-    return;
-  }
+    if (error || !data.session) {
+        res.status(401).json({ message: "Invalid email or password" });
+        return;
+    }
 
-  // Return Supabase's own token (no need to generate JWT manually anymore)
-  res.json({
-    token: data.session.access_token,
-    user: {
-      id: data.user.id,
-      email: data.user.email,
-    },
-  });
+    // Fetch role from your custom users table
+    const { data: userData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
+    const role = userData?.role ?? "viewer";
+
+    res.json({
+        token: data.session.access_token,
+        user: {
+            id: data.user.id,
+            email: data.user.email,
+            role,
+        },
+    });
 });
 
 app.post("/auth/signup", async (req: Request, res: Response) => {
@@ -240,7 +248,32 @@ app.get("/active_incidents", async (req: Request, res: Response) => {
 app.patch("/incidents/:id/assign", async (req: Request, res: Response) => {
     const { id } = req.params;
     const { assigned_to } = req.body;
-    console.log("Assigning incident", id, "to", assigned_to);
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+        res.status(401).json({ message: "No token provided" });
+        return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !userData.user) {
+        res.status(401).json({ message: "Invalid token" });
+        return;
+    }
+
+    const { data: roleData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userData.user.id)
+        .single();
+
+    console.log("Role data:", roleData);
+
+    if (roleData?.role !== "admin") {
+        res.status(403).json({ message: "Only admins can assign incidents" });
+        return;
+    }
 
     const { data, error } = await supabase
         .from("incidents")
@@ -255,6 +288,42 @@ app.patch("/incidents/:id/assign", async (req: Request, res: Response) => {
     }
 
     res.json(data);
+});
+
+app.get("/users", async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+        res.status(401).json({ message: "No token provided" });
+        return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !userData.user) {
+        res.status(401).json({ message: "Invalid token" });
+        return;
+    }
+
+    const { data: roleData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userData.user.id)
+        .single();
+
+    if (roleData?.role !== "admin") {
+        res.status(403).json({ message: "Only admins can list users" });
+        return;
+    }
+
+    const { data, error } = await supabase.auth.admin.listUsers();
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data.users.map(u => ({ id: u.id, email: u.email })));
 });
 
 app.get("/users/:id", async (req: Request, res: Response) => {

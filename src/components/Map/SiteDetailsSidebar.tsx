@@ -121,11 +121,11 @@ const SiteDetailsSidebar = ({
     const [assigning, setAssigning] = useState(false);
     const [assigned, setAssigned] = useState<string | null>(incident?.assigned_to ?? null);
     const [assignedEmail, setAssignedEmail] = useState<string | null>(null);
+    const [users, setUsers] = useState<{ id: string; email: string }[]>([]);
+    const [selectedUserId, setSelectedUserId] = useState<string>("");
 
     const handleAssign = async () => {
-        if (!incident || !user) return;
-        console.log("User ID:", user.id);
-        console.log("Incident ID:", incident.incident_id);
+        if (!incident || !user || !selectedUserId) return;
         setAssigning(true);
         try {
             const res = await fetch(`http://localhost:3000/incidents/${incident.incident_id}/assign`, {
@@ -134,7 +134,7 @@ const SiteDetailsSidebar = ({
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${localStorage.getItem("token")}`,
                 },
-                body: JSON.stringify({ assigned_to: user.id }),
+                body: JSON.stringify({ assigned_to: selectedUserId }),
             });
             const data = await res.json();
             setAssigned(data.assigned_to);
@@ -144,6 +144,19 @@ const SiteDetailsSidebar = ({
             setAssigning(false);
         }
     };
+
+    useEffect(() => {
+        if (user?.role !== "admin" || !incident) return;
+        fetch("http://localhost:3000/users", {
+            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+        })
+            .then(r => r.json())
+            .then(data => {
+                setUsers(Array.isArray(data) ? data : []);
+                setSelectedUserId(assigned ?? user.id);
+            })
+            .catch(() => setUsers([]));
+    }, [user, incident]);
 
     useEffect(() => {
         const timer = setTimeout(() => setVisible(true), 10);
@@ -237,21 +250,45 @@ const SiteDetailsSidebar = ({
 
                             {/* Assign section */}
                             <div className="mt-3 pt-3 border-t border-white/10">
-                                {assigned ? (
+                                {user?.role === "admin" ? (
+                                    <div className="flex flex-col gap-2">
+                                        {assigned && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-white/50 text-xs">Assigned to</span>
+                                                <span className="text-green-400 text-xs">
+                                                    {assigned === user?.id ? `You (${user.email})` : assignedEmail ?? assigned}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <select
+                                            value={selectedUserId}
+                                            onChange={e => setSelectedUserId(e.target.value)}
+                                            className="w-full py-2 px-3 bg-white/5 border border-white/10 text-white/70 text-xs rounded-lg focus:outline-none focus:border-white/30"
+                                        >
+                                            <option value="" disabled>Select a user...</option>
+                                            {users.map(u => (
+                                                <option key={u.id} value={u.id} style={{ background: "#0a0015" }}>
+                                                    {u.email}{u.id === user.id ? " (you)" : ""}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            onClick={handleAssign}
+                                            disabled={assigning || !selectedUserId}
+                                            className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            {assigning ? "Assigning..." : assigned ? "Reassign" : "Assign"}
+                                        </button>
+                                    </div>
+                                ) : assigned ? (
                                     <div className="flex items-center justify-between">
                                         <span className="text-white/50 text-xs">Assigned to</span>
                                         <span className="text-green-400 text-xs">
-                                            {assigned === user?.id ? `You (${user.email})` : assignedEmail ?? assigned}
+                                            {assigned === user?.id ? `You (${user?.email})` : assignedEmail ?? assigned}
                                         </span>
                                     </div>
                                 ) : (
-                                    <button
-                                        onClick={handleAssign}
-                                        disabled={assigning}
-                                        className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs rounded-lg transition-colors disabled:opacity-50"
-                                    >
-                                        {assigning ? "Assigning..." : "Assign to me"}
-                                    </button>
+                                    <span className="text-white/30 text-xs">No one assigned yet</span>
                                 )}
                             </div>
                         </div>

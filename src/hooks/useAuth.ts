@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 interface User {
     id: string;
     email: string;
+    role: string;
 }
 
 const useAuth = () => {

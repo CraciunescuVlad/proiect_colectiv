@@ -54,6 +54,7 @@ const MapPage = () => {
     const [incidents, setIncidents] = useState<Incident[]>([]);
     const [incidentSites, setIncidentSites] = useState<Set<string>>(new Set());
     const [selectedSite, setSelectedSite] = useState<SelectedSite | null>(null);
+    const [filter, setFilter] = useState<"all" | "incidents" | "alarms" | "normal">("all");
 
     useEffect(() => {
         Promise.all([
@@ -89,7 +90,27 @@ const MapPage = () => {
             <div className="flex items-center justify-between px-6 pt-6 pb-0">
                 <div>
                     <h1 className="text-white text-2xl font-bold mb-1">Sites</h1>
-                    <p className="text-white/40 text-sm">Showing .......</p>
+                    <div className="flex items-center gap-2 mt-2">
+                        {[
+                            { key: "all",       label: "All",       dot: "bg-white/40" },
+                            { key: "incidents", label: "Incidents",  dot: "bg-red-400" },
+                            { key: "alarms",    label: "Alarms",     dot: "bg-purple-400" },
+                            { key: "normal",    label: "Normal",     dot: "bg-green-400" },
+                        ].map((f) => (
+                            <button
+                                key={f.key}
+                                onClick={() => setFilter(f.key as any)}
+                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors border
+                        ${filter === f.key
+                                    ? "bg-white/10 text-white border-white/20"
+                                    : "text-white/40 border-white/10 hover:text-white hover:bg-white/5"
+                                }`}
+                            >
+                                <span className={`w-1.5 h-1.5 rounded-full ${f.dot}`} />
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
                 <div className="flex items-center bg-white/5 border border-white/10 rounded-lg p-1 gap-1">
                     {views.map((v) => (
@@ -97,7 +118,7 @@ const MapPage = () => {
                             key={v}
                             onClick={() => setView(v)}
                             className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-colors
-                                ${view === v ? "bg-white/10 text-white" : "text-white/40 hover:text-white"}`}
+                    ${view === v ? "bg-white/10 text-white" : "text-white/40 hover:text-white"}`}
                         >
                             {v.charAt(0).toUpperCase() + v.slice(1)}
                         </button>
@@ -108,7 +129,14 @@ const MapPage = () => {
             <div className="flex flex-1 gap-6 p-6 overflow-hidden">
                 {view !== "map" && (
                     <div className={view === "list" ? "w-full" : "w-[45%]"}>
-                        <IncidentList sites={sites} />
+                        <IncidentList
+                            sites={sites}
+                            incidents={incidents}
+                            standaloneAlarms={standaloneAlarms}
+                            incidentSites={incidentSites}
+                            onSiteClick={handleMarkerClick}
+                            filter={filter}
+                        />
                     </div>
                 )}
                 <div className={`rounded-2xl overflow-hidden transition-all duration-300 h-full flex
