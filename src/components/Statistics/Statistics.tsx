@@ -4,6 +4,8 @@ import LineChartCard from "./LineChartCard";
 import DateRangePicker from "./DateRangePicker";
 import IncidentsByPriorityChart from "./IncidentsByPriorityChart";
 import AlarmsBySeverityChart from "./AlarmsBySeverityChart";
+import TechnologyPieChart from "./TechnologyPieChart";
+
 
 const getDefaultRange = (): DateRange => {
     const to = new Date();
@@ -53,6 +55,25 @@ const Statistics = () => {
                 />
 
                 <AlarmsBySeverityChart from={range?.from} to={range?.to} />
+
+                <div className="flex gap-6">
+                    <div className="flex-1">
+                        <TechnologyPieChart
+                            endpoint="alarms/by-technology"
+                            title="Alarms by technology"
+                            from={range?.from}
+                            to={range?.to}
+                        />
+                    </div>
+                    <div className="flex-1">
+                        <TechnologyPieChart
+                            endpoint="incidents/by-technology"
+                            title="Incidents by technology"
+                            from={range?.from}
+                            to={range?.to}
+                        />
+                    </div>
+                </div>
 
 
             </div>
