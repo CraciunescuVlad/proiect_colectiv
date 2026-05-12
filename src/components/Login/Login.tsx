@@ -87,7 +87,7 @@ const Login = () => {
             <div className="w-[60%] flex flex-col items-center justify-center bg-[#0a0015] relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-blue-900/20" />
                 <div className="relative z-10 text-center px-12">
-                    <h2 className="text-white text-4xl font-bold mb-4">Telecom Outage Heatmap</h2>
+                    <h2 className="text-white text-4xl font-bold mb-4">AlarmUP</h2>
                     <p className="text-white/40 text-lg max-w-md">
                         Monitor and track telecom incidents across Romania in real time.
                     </p>

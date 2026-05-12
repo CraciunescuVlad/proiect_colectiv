@@ -32,7 +32,7 @@ const Sidebar = () => {
             <div>
                 <div className="mb-8 px-2 h-7 flex items-center overflow-hidden">
                     {expanded ? (
-                        <h1 className="text-white font-bold text-xl tracking-tight whitespace-nowrap">MyApp</h1>
+                        <h1 className="text-white font-bold text-xl tracking-tight whitespace-nowrap">AlarmUP</h1>
                     ) : (
                         <span className="text-white font-bold text-xl">M</span>
                     )}
