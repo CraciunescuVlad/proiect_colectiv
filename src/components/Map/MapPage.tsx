@@ -71,6 +71,10 @@ const MapPage = () => {
             const hasTechInIncidents = incidents.some(i => i.alarms?.some(a => a.site === site.id && selectedTechs.includes(a.tehnologie)));
             return hasTechInAlarms || hasTechInIncidents;
         });
+    const filteredIncidentSites = new Set(
+        [...incidentSites].filter(siteId => filteredSites.some(s => s.id === siteId))
+    );
+
 
     useEffect(() => {
         Promise.all([
@@ -150,7 +154,7 @@ const MapPage = () => {
                             sites={filteredSites}
                             incidents={incidents}
                             standaloneAlarms={standaloneAlarms}
-                            incidentSites={incidentSites}
+                            incidentSites={filteredIncidentSites}
                             onSiteClick={handleMarkerClick}
                             filter={filter}
                         />
