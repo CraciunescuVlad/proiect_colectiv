@@ -55,6 +55,22 @@ const MapPage = () => {
     const [incidentSites, setIncidentSites] = useState<Set<string>>(new Set());
     const [selectedSite, setSelectedSite] = useState<SelectedSite | null>(null);
     const [filter, setFilter] = useState<"all" | "incidents" | "alarms" | "normal">("all");
+    const [selectedTechs, setSelectedTechs] = useState<string[]>([]);
+
+// Tehnologiile disponibile din toate alarmele
+    const availableTechs = [...new Set([
+        ...standaloneAlarms.map(a => a.tehnologie),
+        ...incidents.flatMap(i => i.alarms?.map(a => a.tehnologie) ?? [])
+    ].filter(Boolean))];
+
+// Site-urile filtrate după tehnologie
+    const filteredSites = selectedTechs.length === 0
+        ? sites
+        : sites.filter(site => {
+            const hasTechInAlarms = standaloneAlarms.some(a => a.site === site.id && selectedTechs.includes(a.tehnologie));
+            const hasTechInIncidents = incidents.some(i => i.alarms?.some(a => a.site === site.id && selectedTechs.includes(a.tehnologie)));
+            return hasTechInAlarms || hasTechInIncidents;
+        });
 
     useEffect(() => {
         Promise.all([
@@ -84,6 +100,7 @@ const MapPage = () => {
 
         setSelectedSite({ site, incident, standaloneAlarms: siteAlarms });
     };
+
 
     return (
         <div className="flex flex-col h-screen bg-[#060010]">
@@ -130,7 +147,7 @@ const MapPage = () => {
                 {view !== "map" && (
                     <div className={view === "list" ? "w-full" : "w-[45%]"}>
                         <IncidentList
-                            sites={sites}
+                            sites={filteredSites}
                             incidents={incidents}
                             standaloneAlarms={standaloneAlarms}
                             incidentSites={incidentSites}
@@ -144,11 +161,14 @@ const MapPage = () => {
                     <div className="flex-1 min-w-0 h-full">
                         <MapView
                             view={view}
-                            sites={sites}
+                            sites={filteredSites}
                             standalone_alarms={standaloneAlarms}
                             incidents={incidents}
                             incidentSites={incidentSites}
                             onMarkerClick={handleMarkerClick}
+                            selectedTechs={selectedTechs}
+                            availableTechs={availableTechs}
+                            onTechFilter={setSelectedTechs}
                         />
                     </div>
                     {selectedSite && (

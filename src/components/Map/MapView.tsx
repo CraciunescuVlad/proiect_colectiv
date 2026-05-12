@@ -12,9 +12,14 @@ interface MapViewProps {
     incidents: Incident[];
     incidentSites: Set<string>;
     onMarkerClick: (siteId: string) => void;
+    selectedTechs: string[];
+    availableTechs: string[];
+    onTechFilter: (techs: string[]) => void;
 }
 
-const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onMarkerClick }: MapViewProps) => {
+
+
+const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onMarkerClick , selectedTechs,availableTechs,onTechFilter}: MapViewProps) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
 
@@ -55,17 +60,17 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
     useEffect(() => {
         if (!map.current || sites.length === 0) return;
 
-        const technologyColors: Record<string, { bg: string; color: string; border: string }> = {
-            "2G": { bg: "#1a2e1a", color: "#4ade80", border: "#16a34a" },
-            "3G": { bg: "#1a1a2e", color: "#60a5fa", border: "#2563eb" },
-            "4G": { bg: "#2e1a2e", color: "#e879f9", border: "#a21caf" },
-            "5G": { bg: "#2e1a1a", color: "#f87171", border: "#dc2626" },
-        };
-
-        const getTagStyle = (tech: string) => {
-            const colors = technologyColors[tech] ?? { bg: "#1e1035", color: "#a78bfa", border: "#7c3aed" };
-            return `background:${colors.bg}; color:${colors.color}; border:1px solid ${colors.border}; cursor:pointer;`;
-        };
+        // const technologyColors: Record<string, { bg: string; color: string; border: string }> = {
+        //     "2G": { bg: "#1a2e1a", color: "#4ade80", border: "#16a34a" },
+        //     "3G": { bg: "#1a1a2e", color: "#60a5fa", border: "#2563eb" },
+        //     "4G": { bg: "#2e1a2e", color: "#e879f9", border: "#a21caf" },
+        //     "5G": { bg: "#2e1a1a", color: "#f87171", border: "#dc2626" },
+        // };
+        //
+        // const getTagStyle = (tech: string) => {
+        //     const colors = technologyColors[tech] ?? { bg: "#1e1035", color: "#a78bfa", border: "#7c3aed" };
+        //     return `background:${colors.bg}; color:${colors.color}; border:1px solid ${colors.border}; cursor:pointer;`;
+        // };
 
         const markers: mapboxgl.Marker[] = [];
 
@@ -92,42 +97,42 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
                 }
 
                 // Date pentru Popup
-                const siteIncident = incidents.find(i => i.alarms?.some(a => a.site === site.id));
-                const incidentAlarms = siteIncident ? siteIncident.alarms.filter(a => a.site === site.id) : [];
+                // const siteIncident = incidents.find(i => i.alarms?.some(a => a.site === site.id));
+                // const incidentAlarms = siteIncident ? siteIncident.alarms.filter(a => a.site === site.id) : [];
+                //
+                // const incidentTagsHtml = incidentAlarms.map(a => `
+                //     <span onclick="window.openAlarmDetails('${a.type}')" style="font-size:10px; border-radius:4px; padding:2px 6px; ${getTagStyle(a.tehnologie)}">
+                //         ${a.tehnologie} · ${a.type}
+                //     </span>
+                // `).join("");
+                //
+                // const standaloneTagsHtml = siteStandaloneAlarms.map(a => `
+                //     <span onclick="window.openAlarmDetails('${a.type}')" style="font-size:10px; border-radius:4px; padding:2px 6px; ${getTagStyle(a.tehnologie)}">
+                //         ${a.tehnologie} · ${a.type}
+                //     </span>
+                // `).join("");
 
-                const incidentTagsHtml = incidentAlarms.map(a => `
-                    <span onclick="window.openAlarmDetails('${a.type}')" style="font-size:10px; border-radius:4px; padding:2px 6px; ${getTagStyle(a.tehnologie)}">
-                        ${a.tehnologie} · ${a.type}
-                    </span>
-                `).join("");
-
-                const standaloneTagsHtml = siteStandaloneAlarms.map(a => `
-                    <span onclick="window.openAlarmDetails('${a.type}')" style="font-size:10px; border-radius:4px; padding:2px 6px; ${getTagStyle(a.tehnologie)}">
-                        ${a.tehnologie} · ${a.type}
-                    </span>
-                `).join("");
-
-                const popup = new mapboxgl.Popup({ offset: 12 })
-                    .setHTML(`
-                        <div style="background:#0a0015; color:white; padding:10px; border-radius:8px; font-family:sans-serif; min-width:180px;">
-                            <strong style="font-size:13px;">${site.city}</strong>
-                            <p style="font-size:11px; color:#aaa; margin:4px 0 8px;">${site.address}</p>
-
-                            ${siteIncident ? `
-                                <div style="margin-top:8px; border-top:1px solid #ffffff20; padding-top:8px;">
-                                    <div style="font-size:10px; color:#ef4444; margin-bottom:4px;">● Incident: ${siteIncident.priority}</div>
-                                    <div style="display:flex; flex-wrap:wrap; gap:4px;">${incidentTagsHtml}</div>
-                                </div>
-                            ` : ""}
-
-                            ${hasStandalone ? `
-                                <div style="margin-top:8px; border-top:1px solid #ffffff20; padding-top:8px;">
-                                    <div style="font-size:10px; color:#8b5cf6; margin-bottom:4px;">Alarme active:</div>
-                                    <div style="display:flex; flex-wrap:wrap; gap:4px;">${standaloneTagsHtml}</div>
-                                </div>
-                            ` : ""}
-                        </div>
-                    `);
+                // const popup = new mapboxgl.Popup({ offset: 12 })
+                //     .setHTML(`
+                //         <div style="background:#0a0015; color:white; padding:10px; border-radius:8px; font-family:sans-serif; min-width:180px;">
+                //             <strong style="font-size:13px;">${site.city}</strong>
+                //             <p style="font-size:11px; color:#aaa; margin:4px 0 8px;">${site.address}</p>
+                //
+                //             ${siteIncident ? `
+                //                 <div style="margin-top:8px; border-top:1px solid #ffffff20; padding-top:8px;">
+                //                     <div style="font-size:10px; color:#ef4444; margin-bottom:4px;">● Incident: ${siteIncident.priority}</div>
+                //                     <div style="display:flex; flex-wrap:wrap; gap:4px;">${incidentTagsHtml}</div>
+                //                 </div>
+                //             ` : ""}
+                //
+                //             ${hasStandalone ? `
+                //                 <div style="margin-top:8px; border-top:1px solid #ffffff20; padding-top:8px;">
+                //                     <div style="font-size:10px; color:#8b5cf6; margin-bottom:4px;">Alarme active:</div>
+                //                     <div style="display:flex; flex-wrap:wrap; gap:4px;">${standaloneTagsHtml}</div>
+                //                 </div>
+                //             ` : ""}
+                //         </div>
+                //     `);
 
                 const marker = new mapboxgl.Marker(el)
                     .setLngLat([site.longitude, site.latitudine])
@@ -151,31 +156,80 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
         setTimeout(() => map.current?.resize(), 300);
     }, [view]);
 
-    return (
-        <div className="relative w-full h-full">
-            <div ref={mapContainer} className="w-full h-full" />
+    const technologyColors: Record<string, string> = {
+        "2G": "#16a34a",
+        "3G": "#2563eb",
+        "4G": "#a21caf",
+        "5G": "#dc2626",
+    };
 
-            {/* MODAL DETALII (Pop-up pe mijloc) */}
-            {isModalOpen && selectedAlarmInfo && (
-                <div className="absolute inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-[#1a1025] border border-white/20 p-6 rounded-2xl max-w-md w-full mx-4 shadow-2xl text-white">
-                        <div className="flex justify-between items-start mb-4">
-                            <h2 className="text-xl font-bold text-purple-400">{selectedAlarmInfo.alarm_name}</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="text-white/50 hover:text-white text-2xl leading-none">&times;</button>
-                        </div>
-                        <div className="space-y-4 text-sm">
-                            <p><span className="text-white/40">Descriere:</span><br/>{selectedAlarmInfo.description}</p>
-                            <p><span className="text-white/40">Acțiune Recomandată:</span><br/>{selectedAlarmInfo.recommended_action}</p>
-                        </div>
+    const toggleTech = (tech: string) => {
+        onTechFilter(
+            selectedTechs.includes(tech)
+                ? selectedTechs.filter(t => t !== tech)
+                : [...selectedTechs, tech]
+        );
+    };
+
+    return (
+        <div className="relative w-full h-full flex flex-col">
+
+            {/* Filter bar */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border-b border-white/10 flex-wrap shrink-0">
+                <span className="text-white/40 text-xs">Tehnologie:</span>
+                {availableTechs.map(tech => {
+                    const isActive = selectedTechs.includes(tech);
+                    const color = technologyColors[tech] ?? "#7c3aed";
+                    return (
                         <button
-                            onClick={() => setIsModalOpen(false)}
-                            className="mt-6 w-full py-2 bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                            key={tech}
+                            onClick={() => toggleTech(tech)}
+                            style={{
+                                borderColor: color,
+                                backgroundColor: isActive ? color : "transparent",
+                                color: isActive ? "white" : color,
+                            }}
+                            className="text-xs px-3 py-1 rounded-full border transition-all"
                         >
-                            Închide
+                            {tech}
                         </button>
+                    );
+                })}
+                {selectedTechs.length > 0 && (
+                    <button
+                        onClick={() => onTechFilter([])}
+                        className="text-xs px-3 py-1 rounded-full border border-white/20 text-white/40 hover:text-white transition-all ml-auto"
+                    >
+                        Reset
+                    </button>
+                )}
+            </div>
+
+            {/* Harta */}
+            <div className="relative flex-1">
+                <div ref={mapContainer} className="w-full h-full" />
+
+                {isModalOpen && selectedAlarmInfo && (
+                    <div className="absolute inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                        <div className="bg-[#1a1025] border border-white/20 p-6 rounded-2xl max-w-md w-full mx-4 shadow-2xl text-white">
+                            <div className="flex justify-between items-start mb-4">
+                                <h2 className="text-xl font-bold text-purple-400">{selectedAlarmInfo.alarm_name}</h2>
+                                <button onClick={() => setIsModalOpen(false)} className="text-white/50 hover:text-white text-2xl leading-none">&times;</button>
+                            </div>
+                            <div className="space-y-4 text-sm">
+                                <p><span className="text-white/40">Descriere:</span><br />{selectedAlarmInfo.description}</p>
+                                <p><span className="text-white/40">Acțiune Recomandată:</span><br />{selectedAlarmInfo.recommended_action}</p>
+                            </div>
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="mt-6 w-full py-2 bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                            >
+                                Închide
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };
