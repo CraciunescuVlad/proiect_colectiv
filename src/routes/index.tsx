@@ -1,38 +1,13 @@
-// import { type RouteObject, Navigate } from "react-router-dom";
-// import loginRoute from "./login";
-// import signupRoute from "./signup";
-// import callbackRoute from "./callback.tsx";
-// import MainLayout from "../layouts/MainLayout";
-// import Home from "../components/Home/Home";
-// import MapPage from "../components/Map/MapPage";
-//
-// const routes: RouteObject[] = [
-//     {
-//         path: "/",
-//         element: <Navigate to="/login" replace />,
-//     },
-//     loginRoute,
-//     signupRoute,
-//     callbackRoute,
-//     {
-//         element: <MainLayout />,
-//         children: [
-//             { path: "/home", element: <Home /> },
-//             { path: "/map", element: <MapPage /> },
-//         ],
-//     },
-// ];
-//
-// export default routes;
-
 import { type RouteObject, Navigate } from "react-router-dom";
 import loginRoute from "./login";
 import callbackRoute from "./callback.tsx";
+import signupRoute from "./signup.tsx";
 import MainLayout from "../layouts/MainLayout";
 import Home from "../components/Home/Home";
 import MapPage from "../components/Map/MapPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Statistics from "../components/Statistics/Statistics";
+import Signup from "../components/Signup/Signup";
 
 const routes: RouteObject[] = [
     {
@@ -40,6 +15,7 @@ const routes: RouteObject[] = [
         element: <Navigate to="/login" replace />,
     },
     loginRoute,
+    signupRoute,
     callbackRoute,
     {
         element: (
@@ -51,6 +27,7 @@ const routes: RouteObject[] = [
             { path: "/home", element: <Home /> },
             { path: "/harta", element: <MapPage /> },
             { path: "/statistics", element: <Statistics /> },
+            { path: "/signup", element: <Signup /> },
         ],
     },
 ];
