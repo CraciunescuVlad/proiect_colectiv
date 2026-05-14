@@ -1,6 +1,36 @@
 import { Router, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
 
+// Paginates over Supabase results to bypass the default 1000-row limit
+// Returns all rows matching the filters applied via the builder callback
+const fetchAll = async <T>(
+    buildQuery: (from: number, to: number) => any
+): Promise<{ data: T[]; error: null } | { data: null; error: any }> => {
+    const pageSize = 1000;
+    let page = 0;
+    const all: T[] = [];
+
+    while (true) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        const { data, error } = await buildQuery(from, to);
+
+        if (error) {
+            return { data: null, error };
+        }
+        if (!data || data.length === 0) {
+            break;
+        }
+        all.push(...data);
+        if (data.length < pageSize) {
+            break;
+        }
+        page += 1;
+    }
+
+    return { data: all, error: null };
+};
+
 const createStatisticsRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
@@ -31,8 +61,8 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             .gte("start_time", startDate.toISOString())
             .lte("start_time", endDate.toISOString())
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -79,14 +109,17 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
-            .from("alarms")
-            .select("start_time")
-            .gte("start_time", startDate.toISOString())
-            .lte("start_time", endDate.toISOString())
+        const { data, error } = await fetchAll<{ start_time: string }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("alarms")
+                .select("start_time")
+                .gte("start_time", startDate.toISOString())
+                .lte("start_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo)
+        );
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -134,14 +167,17 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
-            .from("alarms")
-            .select("start_time, alarm_types(severity)")
-            .gte("start_time", startDate.toISOString())
-            .lte("start_time", endDate.toISOString())
+        const { data, error } = await fetchAll<any>((rangeFrom, rangeTo) =>
+            supabase
+                .from("alarms")
+                .select("start_time, alarm_types(severity)")
+                .gte("start_time", startDate.toISOString())
+                .lte("start_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo)
+        );
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -168,7 +204,6 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             }
         })
 
-        // Generate all days in the interval, filling missing ones with zeroes
         const result: { date: string; Low: number; Medium: number; High: number }[] = [];
         const cursor = new Date(startDate);
         cursor.setHours(0, 0, 0, 0);
@@ -181,7 +216,12 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
                 month: "2-digit",
             });
             const day = grouped[label] ?? { Low: 0, Medium: 0, High: 0 };
-            result.push({ date: label, ...day });
+            result.push({
+                date: label,
+                Low: day.Low ?? 0,
+                Medium: day.Medium ?? 0,
+                High: day.High ?? 0,
+            });
             cursor.setDate(cursor.getDate() + 1);
         }
 
@@ -208,8 +248,8 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             .gte("start_time", startDate.toISOString())
             .lte("start_time", endDate.toISOString())
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -279,8 +319,8 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             .gte("end_time", startDate.toISOString())
             .lte("end_time", endDate.toISOString())
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -345,14 +385,17 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
-            .from("alarms")
-            .select("tehnologie")
-            .gte("start_time", startDate.toISOString())
-            .lte("start_time", endDate.toISOString())
+        const { data, error } = await fetchAll<{ tehnologie: string | null }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("alarms")
+                .select("tehnologie")
+                .gte("start_time", startDate.toISOString())
+                .lte("start_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo)
+        );
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -383,18 +426,20 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        // Step 1: get incidents in the interval
-        const { data: incidents, error: incError } = await supabase
-            .from("incidents")
-            .select("incident_id")
-            .gte("start_time", startDate.toISOString())
-            .lte("start_time", endDate.toISOString())
+        const { data: incidents, error: incError } = await fetchAll<{ incident_id: number }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("incidents")
+                .select("incident_id")
+                .gte("start_time", startDate.toISOString())
+                .lte("start_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo)
+        );
 
-        if (incError) {
-            res.status(500).json({ message: incError.message })
+        if (incError || !incidents) {
+            res.status(500).json({ message: incError?.message ?? "No data" })
             return
         }
-        if (!incidents || incidents.length === 0) {
+        if (incidents.length === 0) {
             res.json([]);
             return;
         }
@@ -402,30 +447,35 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         const incidentIds = incidents.map(i => i.incident_id);
 
         // Step 2: get alarm IDs linked to those incidents
-        const { data: links, error: linkError } = await supabase
-            .from("incident_alarms")
-            .select("incident_id, alarm_id")
-            .in("incident_id", incidentIds)
+        const { data: links, error: linkError } = await fetchAll<{ incident_id: number; alarm_id: number }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("incident_alarms")
+                .select("incident_id, alarm_id")
+                .in("incident_id", incidentIds)
+                .range(rangeFrom, rangeTo)
+        );
 
-        if (linkError) {
-            res.status(500).json({ message: linkError.message })
+        if (linkError || !links) {
+            res.status(500).json({ message: linkError?.message ?? "No data" })
             return
         }
-        if (!links || links.length === 0) {
+        if (links.length === 0) {
             res.json([]);
             return;
         }
 
         const alarmIds = [...new Set(links.map(l => l.alarm_id))];
 
-        // Step 3: get the technology of each linked alarm
-        const { data: alarms, error: alarmError } = await supabase
-            .from("alarms")
-            .select("alarm_id, tehnologie")
-            .in("alarm_id", alarmIds)
+        const { data: alarms, error: alarmError } = await fetchAll<{ alarm_id: number; tehnologie: string | null }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("alarms")
+                .select("alarm_id, tehnologie")
+                .in("alarm_id", alarmIds)
+                .range(rangeFrom, rangeTo)
+        );
 
-        if (alarmError) {
-            res.status(500).json({ message: alarmError.message })
+        if (alarmError || !alarms) {
+            res.status(500).json({ message: alarmError?.message ?? "No data" })
             return
         }
 
@@ -434,7 +484,6 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             alarmTech[a.alarm_id] = a.tehnologie ?? "Unknown";
         });
 
-        // Step 4: for each incident, collect the unique technologies of its alarms
         const incidentTechs: Record<string, Set<string>> = {};
         links.forEach(l => {
             if (!incidentTechs[l.incident_id]) {
@@ -444,7 +493,6 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             if (tech) incidentTechs[l.incident_id].add(tech);
         });
 
-        // Step 5: count incidents per technology
         const counts: Record<string, number> = {};
         Object.values(incidentTechs).forEach(techSet => {
             techSet.forEach(tech => {
