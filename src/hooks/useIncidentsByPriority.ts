@@ -9,7 +9,8 @@ type PriorityChartPoint = {
 };
 
 // Fetches incidents grouped by day and priority for a given date range
-const useIncidentsByPriority = (from?: Date, to?: Date) => {
+// Optionally filtered by site
+const useIncidentsByPriority = (from?: Date, to?: Date, siteId?: string | null) => {
     const [data, setData] = useState<PriorityChartPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -26,9 +27,19 @@ const useIncidentsByPriority = (from?: Date, to?: Date) => {
                     return `${year}-${month}-${day}`;
                 };
 
-                let url = "http://localhost:3000/statistics/incidents/chart-by-priority";
+                const params = new URLSearchParams();
                 if (from && to) {
-                    url += `?from=${formatDate(from)}&to=${formatDate(to)}`;
+                    params.append("from", formatDate(from));
+                    params.append("to", formatDate(to));
+                }
+                if (siteId !== null && siteId !== undefined && siteId !== "") {
+                    params.append("siteId", siteId);
+                }
+
+                let url = "http://localhost:3000/statistics/incidents/chart-by-priority";
+                const qs = params.toString();
+                if (qs !== "") {
+                    url += `?${qs}`;
                 }
 
                 const response = await fetch(url);
@@ -47,7 +58,7 @@ const useIncidentsByPriority = (from?: Date, to?: Date) => {
         };
 
         fetchData();
-    }, [from?.getTime(), to?.getTime()]);
+    }, [from?.getTime(), to?.getTime(), siteId]);
 
     return { data, loading, error };
 };

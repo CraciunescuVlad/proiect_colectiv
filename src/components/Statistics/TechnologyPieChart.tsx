@@ -6,6 +6,7 @@ type Props = {
     title: string;
     from?: Date;
     to?: Date;
+    siteId?: string | null;
 };
 
 // Color palette used for the slices
@@ -27,8 +28,8 @@ const CustomTooltip = ({ active, payload, total }: any) => {
 };
 
 // Pie chart showing distribution of a metric by technology
-const TechnologyPieChart = ({ endpoint, title, from, to }: Props) => {
-    const { data, loading, error } = useTechnologyDistribution(endpoint, from, to);
+const TechnologyPieChart = ({ endpoint, title, from, to, siteId }: Props) => {
+    const { data, loading, error } = useTechnologyDistribution(endpoint, from, to, siteId);
     const total = data.reduce((sum, item) => sum + item.value, 0);
     return (
         <div className="border border-white/10 rounded-2xl p-6 w-full">

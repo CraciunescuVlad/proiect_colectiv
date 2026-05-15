@@ -5,6 +5,7 @@ import DateRangePicker from "./DateRangePicker";
 import IncidentsByPriorityChart from "./IncidentsByPriorityChart";
 import AlarmsBySeverityChart from "./AlarmsBySeverityChart";
 import TechnologyPieChart from "./TechnologyPieChart";
+import SiteSelector from "./SiteSelector";
 
 
 const getDefaultRange = (): DateRange => {
@@ -16,12 +17,22 @@ const getDefaultRange = (): DateRange => {
 
 const Statistics = () => {
     const [range, setRange] = useState<DateRange | undefined>(getDefaultRange());
+    const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+
+    // Title changes based on whether a site filter is applied
+    const pageTitle = selectedSiteId === null ? "Statistics" : "Site Statistics";
 
     return (
         <div className="flex flex-col h-screen bg-[#060010] px-24 py-6 overflow-y-auto">
             <div className="flex items-center justify-between mb-8">
-                <h1 className="text-white text-2xl font-semibold">Statistics</h1>
-                <DateRangePicker range={range} onChange={setRange} />
+                <h1 className="text-white text-2xl font-semibold">{pageTitle}</h1>
+                <div className="flex items-center gap-4">
+                    <SiteSelector
+                        selectedSiteId={selectedSiteId}
+                        onChange={setSelectedSiteId}
+                    />
+                    <DateRangePicker range={range} onChange={setRange} />
+                </div>
             </div>
 
             <div className="flex flex-col gap-6">
@@ -32,9 +43,14 @@ const Statistics = () => {
                     color="#c70606"
                     from={range?.from}
                     to={range?.to}
+                    siteId={selectedSiteId}
                 />
 
-                <IncidentsByPriorityChart from={range?.from} to={range?.to} />
+                <IncidentsByPriorityChart
+                    from={range?.from}
+                    to={range?.to}
+                    siteId={selectedSiteId}
+                />
 
                 <LineChartCard
                     endpoint="incidents/avg-resolution"
@@ -43,6 +59,7 @@ const Statistics = () => {
                     color="#c70606"
                     from={range?.from}
                     to={range?.to}
+                    siteId={selectedSiteId}
                 />
 
                 <LineChartCard
@@ -52,9 +69,14 @@ const Statistics = () => {
                     color="#a263f4"
                     from={range?.from}
                     to={range?.to}
+                    siteId={selectedSiteId}
                 />
 
-                <AlarmsBySeverityChart from={range?.from} to={range?.to} />
+                <AlarmsBySeverityChart
+                    from={range?.from}
+                    to={range?.to}
+                    siteId={selectedSiteId}
+                />
 
                 <div className="flex gap-6">
                     <div className="flex-1">
@@ -63,6 +85,7 @@ const Statistics = () => {
                             title="Alarms by technology"
                             from={range?.from}
                             to={range?.to}
+                            siteId={selectedSiteId}
                         />
                     </div>
                     <div className="flex-1">
@@ -71,6 +94,7 @@ const Statistics = () => {
                             title="Incidents by technology"
                             from={range?.from}
                             to={range?.to}
+                            siteId={selectedSiteId}
                         />
                     </div>
                 </div>

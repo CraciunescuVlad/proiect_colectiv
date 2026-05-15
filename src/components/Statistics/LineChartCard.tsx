@@ -11,6 +11,7 @@ type Props = {
     color: string;
     from?: Date;
     to?: Date;
+    siteId?: string | null;
 };
 
 // Custom tooltip shown when hovering over a point on the chart
@@ -27,8 +28,8 @@ const CustomTooltip = ({ active, payload, label, unit }: any) => {
 };
 
 // Reusable line chart card that fetches and displays time-series data
-const LineChartCard = ({ endpoint, title, unit, color, from, to }: Props) => {
-    const { data, loading, error } = useChartData(endpoint, from, to);
+const LineChartCard = ({ endpoint, title, unit, color, from, to, siteId }: Props) => {
+    const { data, loading, error } = useChartData(endpoint, from, to, siteId);
 
     return (
         <div className="border border-white/10 rounded-2xl p-6 w-full">
@@ -53,7 +54,7 @@ const LineChartCard = ({ endpoint, title, unit, color, from, to }: Props) => {
                     <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                         <XAxis dataKey="date" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis domain={[0, 'auto']} tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
                         <Tooltip content={<CustomTooltip unit={unit} />} />
                         <Line
                             type="monotone"
