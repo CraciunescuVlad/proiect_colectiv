@@ -7,6 +7,7 @@ import useAlarmsBySeverity from "../../hooks/useAlarmsBySeverity";
 type Props = {
     from?: Date;
     to?: Date;
+    siteId?: string | null;
 };
 
 // Color palette per severity level
@@ -37,8 +38,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 // Multi-line chart showing alarm counts per day, separated by severity
-const AlarmsBySeverityChart = ({ from, to }: Props) => {
-    const { data, loading, error } = useAlarmsBySeverity(from, to);
+const AlarmsBySeverityChart = ({ from, to, siteId }: Props) => {
+    const { data, loading, error } = useAlarmsBySeverity(from, to, siteId);
 
     return (
         <div className="border border-white/10 rounded-2xl p-6 w-full">
@@ -63,7 +64,7 @@ const AlarmsBySeverityChart = ({ from, to }: Props) => {
                     <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                         <XAxis dataKey="date" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis domain={[0, 'auto']} tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend
                             iconType="circle"

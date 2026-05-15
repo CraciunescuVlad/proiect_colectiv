@@ -5,8 +5,9 @@ type ChartPoint = {
     value: number;
 };
 
-// Fetches chart data from a given statistics endpoint with optional date range
-const useChartData = (endpoint: string, from?: Date, to?: Date) => {
+// Generic chart data hook used by LineChartCard
+// Builds a URL with optional date range and site filter
+const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string | null) => {
     const [data, setData] = useState<ChartPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -23,9 +24,19 @@ const useChartData = (endpoint: string, from?: Date, to?: Date) => {
                     return `${year}-${month}-${day}`;
                 };
 
-                let url = `http://localhost:3000/statistics/${endpoint}/chart`;
+                const params = new URLSearchParams();
                 if (from && to) {
-                    url += `?from=${formatDate(from)}&to=${formatDate(to)}`;
+                    params.append("from", formatDate(from));
+                    params.append("to", formatDate(to));
+                }
+                if (siteId !== null && siteId !== undefined && siteId !== "") {
+                    params.append("siteId", siteId);
+                }
+
+                let url = `http://localhost:3000/statistics/${endpoint}/chart`;
+                const qs = params.toString();
+                if (qs !== "") {
+                    url += `?${qs}`;
                 }
 
                 const response = await fetch(url);
@@ -44,7 +55,7 @@ const useChartData = (endpoint: string, from?: Date, to?: Date) => {
         };
 
         fetchData();
-    }, [endpoint, from?.getTime(), to?.getTime()]);
+    }, [endpoint, from?.getTime(), to?.getTime(), siteId]);
 
     return { data, loading, error };
 };

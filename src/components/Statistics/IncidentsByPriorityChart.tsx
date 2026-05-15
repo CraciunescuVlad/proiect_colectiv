@@ -7,14 +7,15 @@ import useIncidentsByPriority from "../../hooks/useIncidentsByPriority";
 type Props = {
     from?: Date;
     to?: Date;
+    siteId?: string | null;
 };
 
 // Color palette per priority
 const COLORS = {
-    Warning: "#4afa15",   
-    Minor: "#faeb60",     
-    Major: "#fb923c",     
-    Critical: "#ef4444",  
+    Warning: "#4afa15",
+    Minor: "#faeb60",
+    Major: "#fb923c",
+    Critical: "#ef4444",
 };
 
 // Custom tooltip listing all priorities for the hovered day
@@ -38,8 +39,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 // Multi-line chart showing incident counts per day, separated by priority
-const IncidentsByPriorityChart = ({ from, to }: Props) => {
-    const { data, loading, error } = useIncidentsByPriority(from, to);
+const IncidentsByPriorityChart = ({ from, to, siteId }: Props) => {
+    const { data, loading, error } = useIncidentsByPriority(from, to, siteId);
 
     return (
         <div className="border border-white/10 rounded-2xl p-6 w-full">
@@ -64,7 +65,7 @@ const IncidentsByPriorityChart = ({ from, to }: Props) => {
                     <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                         <XAxis dataKey="date" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis domain={[0, 'auto']} tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend
                             iconType="circle"
