@@ -39,7 +39,7 @@ const SiteSelector = ({ selectedSiteId, onChange }: Props) => {
     const filteredSites = useMemo(() => {
         const q = query.trim().toLowerCase();
         if (q === "") {
-            return sites.slice(0, 50);
+            return sites.slice(0, 120);
         }
         return sites
             .filter((s: SiteOption) => s.site_id.toLowerCase().includes(q))
