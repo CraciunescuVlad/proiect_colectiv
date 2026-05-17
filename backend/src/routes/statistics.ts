@@ -1,6 +1,91 @@
 import { Router, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
 
+// Paginates over Supabase results to bypass the default 1000-row limit
+// Returns all rows matching the filters applied via the builder callback
+const fetchAll = async <T>(
+    buildQuery: (from: number, to: number) => any
+): Promise<{ data: T[]; error: null } | { data: null; error: any }> => {
+    const pageSize = 1000;
+    let page = 0;
+    const all: T[] = [];
+
+    while (true) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        const { data, error } = await buildQuery(from, to);
+
+        if (error) {
+            return { data: null, error };
+        }
+        if (!data || data.length === 0) {
+            break;
+        }
+        all.push(...data);
+        if (data.length < pageSize) {
+            break;
+        }
+        page += 1;
+    }
+
+    return { data: all, error: null };
+};
+
+// Parses the optional 'siteId' query param into a number, or null if not provided
+const parseSiteId = (raw: any): string | null => {
+    if (typeof raw !== "string" || raw.trim() === "") {
+        return null;
+    }
+    return raw.trim();
+};
+
+// Resolves the alarm IDs linked to a given site through the alarms table
+// Returns an empty array if no alarms exist on that site
+const getAlarmIdsForSite = async (
+    supabase: SupabaseClient,
+    siteId: string
+): Promise<{ alarmIds: number[]; error: any }> => {
+    const { data, error } = await fetchAll<{ alarm_id: number }>((rangeFrom, rangeTo) =>
+        supabase
+            .from("alarms")
+            .select("alarm_id")
+            .eq("site", siteId)
+            .range(rangeFrom, rangeTo)
+    );
+    if (error || !data) {
+        return { alarmIds: [], error };
+    }
+    return { alarmIds: data.map(a => a.alarm_id), error: null };
+};
+
+// Resolves the incident IDs that have at least one alarm on the given site
+// Uses the incident_alarms junction table
+const getIncidentIdsForSite = async (
+    supabase: SupabaseClient,
+    siteId: string
+): Promise<{ incidentIds: number[]; error: any }> => {
+    const { alarmIds, error: alarmErr } = await getAlarmIdsForSite(supabase, siteId);
+    if (alarmErr) {
+        return { incidentIds: [], error: alarmErr };
+    }
+    if (alarmIds.length === 0) {
+        return { incidentIds: [], error: null };
+    }
+
+    const { data, error } = await fetchAll<{ incident_id: number }>((rangeFrom, rangeTo) =>
+        supabase
+            .from("incident_alarms")
+            .select("incident_id")
+            .in("alarm_id", alarmIds)
+            .range(rangeFrom, rangeTo)
+    );
+    if (error || !data) {
+        return { incidentIds: [], error };
+    }
+    const unique = [...new Set(data.map(l => l.incident_id))];
+    return { incidentIds: unique, error: null };
+};
+
 const createStatisticsRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
@@ -8,10 +93,31 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         res.json({ message: "statistics router works" })
     })
 
+    router.get("/sites", async (req: Request, res: Response) => {
+        const { data, error } = await fetchAll<{ id: string }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("site")
+                .select("id")
+                .order("id", { ascending: true })
+                .range(rangeFrom, rangeTo)
+        );
+
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
+            return
+        }
+
+        // Map id -> site_id so the frontend receives the expected shape
+        const result = data.map(row => ({ site_id: row.id }));
+        res.json(result);
+    })
+
     // Returns the number of incidents per day in a given date range
     // Defaults to the last 30 days if 'from' and 'to' are not provided
+    // If 'siteId' is provided, only incidents linked to that site (via incident_alarms -> alarms.site) are counted
     router.get("/incidents/chart", async (req: Request, res: Response) => {
         const { from, to } = req.query;
+        const siteId = parseSiteId(req.query.siteId);
 
         let startDate: Date;
         let endDate: Date;
@@ -25,14 +131,46 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
+        // Resolve incident IDs for the selected site, if any
+        let incidentFilter: number[] | null = null;
+        if (siteId !== null) {
+            const { incidentIds, error: resolveErr } = await getIncidentIdsForSite(supabase, siteId);
+            if (resolveErr) {
+                res.status(500).json({ message: resolveErr.message ?? "No data" })
+                return
+            }
+            incidentFilter = incidentIds;
+        }
+
+        let query = supabase
             .from("incidents")
             .select("start_time")
             .gte("start_time", startDate.toISOString())
             .lte("start_time", endDate.toISOString())
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (incidentFilter !== null) {
+            if (incidentFilter.length === 0) {
+                // No incidents on this site -> return empty chart with zeros
+                const result: { date: string; value: number }[] = [];
+                const cursor = new Date(startDate);
+                cursor.setHours(0, 0, 0, 0);
+                const lastDay = new Date(endDate);
+                lastDay.setHours(0, 0, 0, 0);
+                while (cursor <= lastDay) {
+                    const label = cursor.toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit" });
+                    result.push({ date: label, value: 0 });
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+                res.json(result);
+                return;
+            }
+            query = query.in("incident_id", incidentFilter);
+        }
+
+        const { data, error } = await query;
+
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -64,8 +202,11 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         res.json(result)
     })
 
+    // Returns the number of alarms per day in a given date range
+    // If 'siteId' is provided, only alarms on that site are counted
     router.get("/alarms/chart", async (req: Request, res: Response) => {
         const { from, to } = req.query;
+        const siteId = parseSiteId(req.query.siteId);
 
         let startDate: Date;
         let endDate: Date;
@@ -79,14 +220,21 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
-            .from("alarms")
-            .select("start_time")
-            .gte("start_time", startDate.toISOString())
-            .lte("start_time", endDate.toISOString())
+        const { data, error } = await fetchAll<{ start_time: string }>((rangeFrom, rangeTo) => {
+            let q = supabase
+                .from("alarms")
+                .select("start_time")
+                .gte("start_time", startDate.toISOString())
+                .lte("start_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo);
+            if (siteId !== null) {
+                q = q.eq("site", siteId);
+            }
+            return q;
+        });
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -118,10 +266,11 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         res.json(result)
     })
 
-    // Returns the number of incidents per day, split by priority
-    // Each day contains keys: warning, minor, major, critical
+    // Returns the number of alarms per day, split by severity (Low/Medium/High)
+    // If 'siteId' is provided, only alarms on that site are counted
     router.get("/alarms/chart-by-severity", async (req: Request, res: Response) => {
         const { from, to } = req.query;
+        const siteId = parseSiteId(req.query.siteId);
 
         let startDate: Date;
         let endDate: Date;
@@ -134,14 +283,21 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
-            .from("alarms")
-            .select("start_time, alarm_types(severity)")
-            .gte("start_time", startDate.toISOString())
-            .lte("start_time", endDate.toISOString())
+        const { data, error } = await fetchAll<any>((rangeFrom, rangeTo) => {
+            let q = supabase
+                .from("alarms")
+                .select("start_time, alarm_types(severity)")
+                .gte("start_time", startDate.toISOString())
+                .lte("start_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo);
+            if (siteId !== null) {
+                q = q.eq("site", siteId);
+            }
+            return q;
+        });
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -151,7 +307,7 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             if (s === 3) return "High";
             return null;
         };
-        // Count incidents per (day, priority)
+        // Count alarms per (day, severity)
         const grouped: Record<string, Record<string, number>> = {}
         data.forEach((alarm: any) => {
             const date = new Date(alarm.start_time).toLocaleDateString("ro-RO", {
@@ -168,7 +324,6 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             }
         })
 
-        // Generate all days in the interval, filling missing ones with zeroes
         const result: { date: string; Low: number; Medium: number; High: number }[] = [];
         const cursor = new Date(startDate);
         cursor.setHours(0, 0, 0, 0);
@@ -181,15 +336,23 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
                 month: "2-digit",
             });
             const day = grouped[label] ?? { Low: 0, Medium: 0, High: 0 };
-            result.push({ date: label, ...day });
+            result.push({
+                date: label,
+                Low: day.Low ?? 0,
+                Medium: day.Medium ?? 0,
+                High: day.High ?? 0,
+            });
             cursor.setDate(cursor.getDate() + 1);
         }
 
         res.json(result)
     })
 
+    // Returns the number of incidents per day, split by priority
+    // If 'siteId' is provided, only incidents linked to that site are counted
     router.get("/incidents/chart-by-priority", async (req: Request, res: Response) => {
         const { from, to } = req.query;
+        const siteId = parseSiteId(req.query.siteId);
 
         let startDate: Date;
         let endDate: Date;
@@ -202,14 +365,45 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
+        // Resolve incident IDs for the selected site, if any
+        let incidentFilter: number[] | null = null;
+        if (siteId !== null) {
+            const { incidentIds, error: resolveErr } = await getIncidentIdsForSite(supabase, siteId);
+            if (resolveErr) {
+                res.status(500).json({ message: resolveErr.message ?? "No data" })
+                return
+            }
+            incidentFilter = incidentIds;
+        }
+
+        let query = supabase
             .from("incidents")
             .select("start_time, priority")
             .gte("start_time", startDate.toISOString())
             .lte("start_time", endDate.toISOString())
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (incidentFilter !== null) {
+            if (incidentFilter.length === 0) {
+                const result: { date: string; Warning: number; Minor: number; Major: number; Critical: number }[] = [];
+                const cursor = new Date(startDate);
+                cursor.setHours(0, 0, 0, 0);
+                const lastDay = new Date(endDate);
+                lastDay.setHours(0, 0, 0, 0);
+                while (cursor <= lastDay) {
+                    const label = cursor.toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit" });
+                    result.push({ date: label, Warning: 0, Minor: 0, Major: 0, Critical: 0 });
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+                res.json(result);
+                return;
+            }
+            query = query.in("incident_id", incidentFilter);
+        }
+
+        const { data, error } = await query;
+
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -256,10 +450,10 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
     })
 
     // Returns the average resolution time (in minutes) of incidents per day
-    // Uses end_time as the grouping date (the day the incident was resolved)
-    // Days without resolved incidents return 0
+    // If 'siteId' is provided, only incidents linked to that site are counted
     router.get("/incidents/avg-resolution/chart", async (req: Request, res: Response) => {
         const { from, to } = req.query;
+        const siteId = parseSiteId(req.query.siteId);
 
         let startDate: Date;
         let endDate: Date;
@@ -272,15 +466,46 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
+        // Resolve incident IDs for the selected site, if any
+        let incidentFilter: number[] | null = null;
+        if (siteId !== null) {
+            const { incidentIds, error: resolveErr } = await getIncidentIdsForSite(supabase, siteId);
+            if (resolveErr) {
+                res.status(500).json({ message: resolveErr.message ?? "No data" })
+                return
+            }
+            incidentFilter = incidentIds;
+        }
+
+        let query = supabase
             .from("incidents")
             .select("start_time, end_time")
             .not("end_time", "is", null)
             .gte("end_time", startDate.toISOString())
             .lte("end_time", endDate.toISOString())
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (incidentFilter !== null) {
+            if (incidentFilter.length === 0) {
+                const result: { date: string; value: number }[] = [];
+                const cursor = new Date(startDate);
+                cursor.setHours(0, 0, 0, 0);
+                const lastDay = new Date(endDate);
+                lastDay.setHours(0, 0, 0, 0);
+                while (cursor <= lastDay) {
+                    const label = cursor.toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit" });
+                    result.push({ date: label, value: 0 });
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+                res.json(result);
+                return;
+            }
+            query = query.in("incident_id", incidentFilter);
+        }
+
+        const { data, error } = await query;
+
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -330,9 +555,10 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
     })
 
     // Returns the distribution of alarms by technology for a given date range
-    // Each entry: { name: "4G", value: 123 }
+    // If 'siteId' is provided, only alarms on that site are counted
     router.get("/alarms/by-technology", async (req: Request, res: Response) => {
         const { from, to } = req.query;
+        const siteId = parseSiteId(req.query.siteId);
 
         let startDate: Date;
         let endDate: Date;
@@ -345,14 +571,21 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        const { data, error } = await supabase
-            .from("alarms")
-            .select("tehnologie")
-            .gte("start_time", startDate.toISOString())
-            .lte("start_time", endDate.toISOString())
+        const { data, error } = await fetchAll<{ tehnologie: string | null }>((rangeFrom, rangeTo) => {
+            let q = supabase
+                .from("alarms")
+                .select("tehnologie")
+                .gte("start_time", startDate.toISOString())
+                .lte("start_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo);
+            if (siteId !== null) {
+                q = q.eq("site", siteId);
+            }
+            return q;
+        });
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" })
             return
         }
 
@@ -369,8 +602,10 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
 
     // Returns the distribution of incidents by technology, derived from their linked alarms
     // An incident with alarms on multiple technologies is counted once per distinct technology
+    // If 'siteId' is provided, only incidents linked to that site are counted
     router.get("/incidents/by-technology", async (req: Request, res: Response) => {
         const { from, to } = req.query;
+        const siteId = parseSiteId(req.query.siteId);
 
         let startDate: Date;
         let endDate: Date;
@@ -383,18 +618,40 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         }
 
-        // Step 1: get incidents in the interval
-        const { data: incidents, error: incError } = await supabase
+        // Resolve incident IDs for the selected site, if any
+        let incidentFilter: number[] | null = null;
+        if (siteId !== null) {
+            const { incidentIds, error: resolveErr } = await getIncidentIdsForSite(supabase, siteId);
+            if (resolveErr) {
+                res.status(500).json({ message: resolveErr.message ?? "No data" })
+                return
+            }
+            incidentFilter = incidentIds;
+            if (incidentFilter.length === 0) {
+                res.json([]);
+                return;
+            }
+        }
+
+        let incQuery = supabase
             .from("incidents")
             .select("incident_id")
             .gte("start_time", startDate.toISOString())
             .lte("start_time", endDate.toISOString())
 
-        if (incError) {
-            res.status(500).json({ message: incError.message })
+        if (incidentFilter !== null) {
+            incQuery = incQuery.in("incident_id", incidentFilter);
+        }
+
+        const { data: incidents, error: incError } = await fetchAll<{ incident_id: number }>((rangeFrom, rangeTo) =>
+            incQuery.range(rangeFrom, rangeTo)
+        );
+
+        if (incError || !incidents) {
+            res.status(500).json({ message: incError?.message ?? "No data" })
             return
         }
-        if (!incidents || incidents.length === 0) {
+        if (incidents.length === 0) {
             res.json([]);
             return;
         }
@@ -402,30 +659,35 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         const incidentIds = incidents.map(i => i.incident_id);
 
         // Step 2: get alarm IDs linked to those incidents
-        const { data: links, error: linkError } = await supabase
-            .from("incident_alarms")
-            .select("incident_id, alarm_id")
-            .in("incident_id", incidentIds)
+        const { data: links, error: linkError } = await fetchAll<{ incident_id: number; alarm_id: number }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("incident_alarms")
+                .select("incident_id, alarm_id")
+                .in("incident_id", incidentIds)
+                .range(rangeFrom, rangeTo)
+        );
 
-        if (linkError) {
-            res.status(500).json({ message: linkError.message })
+        if (linkError || !links) {
+            res.status(500).json({ message: linkError?.message ?? "No data" })
             return
         }
-        if (!links || links.length === 0) {
+        if (links.length === 0) {
             res.json([]);
             return;
         }
 
         const alarmIds = [...new Set(links.map(l => l.alarm_id))];
 
-        // Step 3: get the technology of each linked alarm
-        const { data: alarms, error: alarmError } = await supabase
-            .from("alarms")
-            .select("alarm_id, tehnologie")
-            .in("alarm_id", alarmIds)
+        const { data: alarms, error: alarmError } = await fetchAll<{ alarm_id: number; tehnologie: string | null }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("alarms")
+                .select("alarm_id, tehnologie")
+                .in("alarm_id", alarmIds)
+                .range(rangeFrom, rangeTo)
+        );
 
-        if (alarmError) {
-            res.status(500).json({ message: alarmError.message })
+        if (alarmError || !alarms) {
+            res.status(500).json({ message: alarmError?.message ?? "No data" })
             return
         }
 
@@ -434,7 +696,6 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             alarmTech[a.alarm_id] = a.tehnologie ?? "Unknown";
         });
 
-        // Step 4: for each incident, collect the unique technologies of its alarms
         const incidentTechs: Record<string, Set<string>> = {};
         links.forEach(l => {
             if (!incidentTechs[l.incident_id]) {
@@ -444,7 +705,6 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
             if (tech) incidentTechs[l.incident_id].add(tech);
         });
 
-        // Step 5: count incidents per technology
         const counts: Record<string, number> = {};
         Object.values(incidentTechs).forEach(techSet => {
             techSet.forEach(tech => {
