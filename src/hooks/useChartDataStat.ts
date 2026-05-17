@@ -33,7 +33,7 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string 
                     params.append("siteId", siteId);
                 }
 
-                let url = `http://localhost:3000/statistics/${endpoint}/chart`;
+                let url = `http://localhost:3000/statistics/${endpoint}`;
                 const qs = params.toString();
                 if (qs !== "") {
                     url += `?${qs}`;

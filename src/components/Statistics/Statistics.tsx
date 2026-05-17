@@ -2,8 +2,6 @@ import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import LineChartCard from "./LineChartCard";
 import DateRangePicker from "./DateRangePicker";
-import IncidentsByPriorityChart from "./IncidentsByPriorityChart";
-import AlarmsBySeverityChart from "./AlarmsBySeverityChart";
 import TechnologyPieChart from "./TechnologyPieChart";
 import SiteSelector from "./SiteSelector";
 
@@ -37,42 +35,60 @@ const Statistics = () => {
 
             <div className="flex flex-col gap-6">
                 <LineChartCard
-                    endpoint="incidents"
+                    endpoint="incidents/chart"
                     title="Incidents in the selected range"
                     unit="incidents"
-                    color="#c70606"
-                    from={range?.from}
-                    to={range?.to}
-                    siteId={selectedSiteId}
-                />
-
-                <IncidentsByPriorityChart
+                    series={[{ dataKey: "value", color: "#c70606" }]}
                     from={range?.from}
                     to={range?.to}
                     siteId={selectedSiteId}
                 />
 
                 <LineChartCard
-                    endpoint="incidents/avg-resolution"
+                    endpoint="incidents/chart-by-priority"
+                    title="Incidents by priority"
+                    height={300}
+                    capitalizeLegend
+                    series={[
+                        { dataKey: "Warning", color: "#4afa15" },
+                        { dataKey: "Minor", color: "#faeb60" },
+                        { dataKey: "Major", color: "#fb923c" },
+                        { dataKey: "Critical", color: "#ef4444" },
+                    ]}
+                    from={range?.from}
+                    to={range?.to}
+                    siteId={selectedSiteId}
+                />
+
+                <LineChartCard
+                    endpoint="incidents/avg-resolution/chart"
                     title="Average incident resolution time"
                     unit="minutes"
-                    color="#c70606"
+                    series={[{ dataKey: "value", color: "#c70606" }]}
                     from={range?.from}
                     to={range?.to}
                     siteId={selectedSiteId}
                 />
 
                 <LineChartCard
-                    endpoint="alarms"
+                    endpoint="alarms/chart"
                     title="Alarms in the selected range"
                     unit="alarms"
-                    color="#a263f4"
+                    series={[{ dataKey: "value", color: "#a263f4" }]}
                     from={range?.from}
                     to={range?.to}
                     siteId={selectedSiteId}
                 />
 
-                <AlarmsBySeverityChart
+                <LineChartCard
+                    endpoint="alarms/chart-by-severity"
+                    title="Alarms by severity"
+                    height={300}
+                    series={[
+                        { dataKey: "Low", color: "#4ade80" },
+                        { dataKey: "Medium", color: "#facc15" },
+                        { dataKey: "High", color: "#ef4444" },
+                    ]}
                     from={range?.from}
                     to={range?.to}
                     siteId={selectedSiteId}
