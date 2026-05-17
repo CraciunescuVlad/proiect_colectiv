@@ -8,6 +8,7 @@ import { exec } from "child_process";
 import createDashboardRouter from "./routes/dashboard";
 import createMapRouter from "./routes/map";
 import createStatisticsRouter from "./routes/statistics";
+import { requireAdmin, requireAuth } from "./middleware/auth";
 
 dotenv.config();
 
@@ -75,6 +76,7 @@ app.post("/auth/login", async (req: Request, res: Response) => {
     });
 });
 
+
 app.post("/auth/signup", async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -92,7 +94,7 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
 });
 
 // GET toate site-urile
-app.get("/sites", async (req: Request, res: Response) => {
+app.get("/sites", requireAuth, async (req: Request, res: Response) => {
     const { data, error } = await supabase
         .from("site")
         .select("id, latitudine, longitude, city, address")
@@ -124,7 +126,7 @@ app.get("/sites", async (req: Request, res: Response) => {
 // })
 
 // GET toate alarmele
-app.get("/alarms", async (req: Request, res: Response) => {
+app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
     const { data, error } = await supabase
         .from("alarms")
         .select("alarm_id, status, start_time, resolved_time, type, tehnologie, site")
@@ -137,7 +139,7 @@ app.get("/alarms", async (req: Request, res: Response) => {
     res.json(data)
 })
 
-app.get("/standalone_alarms", async (req: Request, res: Response) => {
+app.get("/standalone_alarms", requireAuth, async (req: Request, res: Response) => {
     try {
         // 1. Extrage ID-urile tuturor alarmelor care fac parte din incidente active
         const { data: incidentAlarms, error: iaError } = await supabase
@@ -171,7 +173,7 @@ app.get("/standalone_alarms", async (req: Request, res: Response) => {
 });
 
 // GET toate incidentele
-app.get("/incidents", async (req: Request, res: Response) => {
+app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
     const { status } = req.query;
 
     let query = supabase
@@ -193,7 +195,7 @@ app.get("/incidents", async (req: Request, res: Response) => {
 })
 
 //incidente active
-app.get("/active_incidents", async (req: Request, res: Response) => {
+app.get("/active_incidents", requireAuth, async (req: Request, res: Response) => {
     const { data: incidents, error: incError } = await supabase
         .from("incidents")
         .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
@@ -245,35 +247,9 @@ app.get("/active_incidents", async (req: Request, res: Response) => {
     res.json(result)
 })
 
-app.patch("/incidents/:id/assign", async (req: Request, res: Response) => {
+app.patch("/incidents/:id/assign", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     const { id } = req.params;
     const { assigned_to } = req.body;
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-        res.status(401).json({ message: "No token provided" });
-        return;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !userData.user) {
-        res.status(401).json({ message: "Invalid token" });
-        return;
-    }
-
-    const { data: roleData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userData.user.id)
-        .single();
-
-    console.log("Role data:", roleData);
-
-    if (roleData?.role !== "admin") {
-        res.status(403).json({ message: "Only admins can assign incidents" });
-        return;
-    }
 
     const { data, error } = await supabase
         .from("incidents")
@@ -290,32 +266,7 @@ app.patch("/incidents/:id/assign", async (req: Request, res: Response) => {
     res.json(data);
 });
 
-app.get("/users", async (req: Request, res: Response) => {
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-        res.status(401).json({ message: "No token provided" });
-        return;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !userData.user) {
-        res.status(401).json({ message: "Invalid token" });
-        return;
-    }
-
-    const { data: roleData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userData.user.id)
-        .single();
-
-    if (roleData?.role !== "admin") {
-        res.status(403).json({ message: "Only admins can list users" });
-        return;
-    }
-
+app.get("/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     const { data, error } = await supabase.auth.admin.listUsers();
 
     if (error) {
@@ -326,8 +277,16 @@ app.get("/users", async (req: Request, res: Response) => {
     res.json(data.users.map(u => ({ id: u.id, email: u.email })));
 });
 
-app.get("/users/:id", async (req: Request, res: Response) => {
-    const { id } = req.params;
+app.get("/users/:id", requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string };
+
+    const isAdmin = req.user!.role === "admin";
+    const isSelf = req.user!.id === id;
+
+    if (!isAdmin && !isSelf) {
+        res.status(404).json({ message: "User not found" });
+        return;
+    }
 
     const { data, error } = await supabase.auth.admin.getUserById(id);
 
@@ -384,7 +343,6 @@ app.patch("/incidents/:id/message", async (req: Request, res: Response) => {
 
     res.json(data);
 });
-
 
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))
 
