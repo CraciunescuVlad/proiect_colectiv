@@ -123,9 +123,8 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         let endDate: Date;
 
         if (from && to && typeof from === "string" && typeof to === "string") {
-            startDate = new Date(from);
-            endDate = new Date(to);
-            endDate.setUTCHours(23, 59, 59, 999);
+            startDate = new Date(`${from}T00:00:00`);
+            endDate = new Date(`${to}T23:59:59.999`);
         } else {
             endDate = new Date();
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -212,9 +211,8 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         let endDate: Date;
 
         if (from && to && typeof from === "string" && typeof to === "string") {
-            startDate = new Date(from);
-            endDate = new Date(to);
-            endDate.setUTCHours(23, 59, 59, 999);
+            startDate = new Date(`${from}T00:00:00`);
+            endDate = new Date(`${to}T23:59:59.999`);
         } else {
             endDate = new Date();
             startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
