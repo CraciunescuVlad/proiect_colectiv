@@ -17,6 +17,7 @@ const getAlarmIdsForSite = async (
             .from("alarms")
             .select("alarm_id")
             .eq("site", siteId)
+            .order("alarm_id", { ascending: true })
             .range(rangeFrom, rangeTo)
     );
     if (error || !data) {
@@ -50,6 +51,7 @@ const getIncidentIdsForSite = async (
             .from("incident_alarms")
             .select("incident_id")
             .in("alarm_id", alarmIds)
+            .order("id", { ascending: true })
             .range(rangeFrom, rangeTo)
     );
     if (error || !data) {
@@ -75,6 +77,7 @@ const getIncidentIdsForAssignee = async (
             .from("incidents")
             .select("incident_id")
             .eq("assigned_to", assignedTo)
+            .order("incident_id", { ascending: true })
             .range(rangeFrom, rangeTo)
     );
     if (error || !data) {

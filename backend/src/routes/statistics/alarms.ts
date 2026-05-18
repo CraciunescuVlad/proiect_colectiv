@@ -32,6 +32,7 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
                 .select("start_time")
                 .gte("start_time", startDate.toISOString())
                 .lte("start_time", endDate.toISOString())
+                .order("alarm_id", { ascending: true })
                 .range(rangeFrom, rangeTo);
             if (siteId !== null) {
                 q = q.eq("site", siteId);
@@ -73,6 +74,7 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
                 .select("start_time, alarm_types(severity)")
                 .gte("start_time", startDate.toISOString())
                 .lte("start_time", endDate.toISOString())
+                .order("alarm_id", { ascending: true })
                 .range(rangeFrom, rangeTo);
             if (siteId !== null) {
                 q = q.eq("site", siteId);
@@ -134,6 +136,7 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
                 .select("tehnologie")
                 .gte("start_time", startDate.toISOString())
                 .lte("start_time", endDate.toISOString())
+                .order("alarm_id", { ascending: true })
                 .range(rangeFrom, rangeTo);
             if (siteId !== null) {
                 q = q.eq("site", siteId);

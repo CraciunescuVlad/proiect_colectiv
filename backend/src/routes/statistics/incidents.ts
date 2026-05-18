@@ -253,7 +253,8 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
         }
 
         const { data: incidents, error: incError } = await fetchAll<{ incident_id: number }>((rangeFrom, rangeTo) =>
-            incQuery.range(rangeFrom, rangeTo)
+            incQuery.order("incident_id", { ascending: true })   
+                    .range(rangeFrom, rangeTo)
         );
 
         if (incError || !incidents) {
@@ -272,6 +273,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
                 .from("incident_alarms")
                 .select("incident_id, alarm_id")
                 .in("incident_id", incidentIds)
+                .order("id", { ascending: true })
                 .range(rangeFrom, rangeTo)
         );
 
@@ -291,6 +293,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
                 .from("alarms")
                 .select("alarm_id, tehnologie")
                 .in("alarm_id", alarmIds)
+                .order("alarm_id", { ascending: true })
                 .range(rangeFrom, rangeTo)
         );
 
@@ -349,6 +352,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
                 .eq("assigned_to", assignedTo)
                 .gte("start_time", startDate.toISOString())
                 .lte("start_time", endDate.toISOString())
+                .order("incident_id", { ascending: true })
                 .range(rangeFrom, rangeTo)
         );
 
@@ -365,6 +369,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
                 .not("end_time", "is", null)
                 .gte("end_time", startDate.toISOString())
                 .lte("end_time", endDate.toISOString())
+                .order("incident_id", { ascending: true })
                 .range(rangeFrom, rangeTo)
         );
 
