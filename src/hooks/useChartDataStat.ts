@@ -7,7 +7,7 @@ type ChartPoint = {
 
 // Generic chart data hook used by LineChartCard
 // Builds a URL with optional date range and site filter
-const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string | null) => {
+const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string | null, assignedTo?: string | null) => {
     const [data, setData] = useState<ChartPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -33,6 +33,10 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string 
                     params.append("siteId", siteId);
                 }
 
+                if (assignedTo !== null && assignedTo !== undefined && assignedTo !== "") {
+    params.append("assignedTo", assignedTo);
+}
+
                 let url = `http://localhost:3000/statistics/${endpoint}`;
                 const qs = params.toString();
                 if (qs !== "") {
@@ -55,7 +59,7 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string 
         };
 
         fetchData();
-    }, [endpoint, from?.getTime(), to?.getTime(), siteId]);
+    }, [endpoint, from?.getTime(), to?.getTime(), siteId, assignedTo]);
 
     return { data, loading, error };
 };

@@ -20,6 +20,8 @@ type Props = {
     from?: Date;
     to?: Date;
     siteId?: string | null;
+    assignedTo?: string | null;
+
 };
 
 // Tooltip behavior depends on how many series are rendered
@@ -68,8 +70,10 @@ const LineChartCard = ({
     from,
     to,
     siteId,
+    assignedTo,
+    
 }: Props) => {
-    const { data, loading, error } = useChartData(endpoint, from, to, siteId);
+    const { data, loading, error } = useChartData(endpoint, from, to, siteId, assignedTo);
     const multi = series.length > 1;
 
     return (
@@ -92,7 +96,7 @@ const LineChartCard = ({
 
             {!loading && !error && (
                 <ResponsiveContainer width="100%" height={height}>
-                    <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <LineChart data={data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                         <XAxis dataKey="date" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
                         <YAxis domain={[0, 'auto']} tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -117,7 +121,7 @@ const LineChartCard = ({
                                 dataKey={s.dataKey}
                                 stroke={s.color}
                                 strokeWidth={2}
-                                dot={false}
+                                dot={{ r: 2, fill: s.color, strokeWidth: 0 }}
                                 activeDot={multi ? { r: 4 } : { r: 5, fill: s.color, strokeWidth: 0 }}
                             />
                         ))}
