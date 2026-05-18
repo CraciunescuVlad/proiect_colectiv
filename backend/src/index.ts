@@ -433,4 +433,33 @@ app.patch("/incidents/:id/message", async (req: Request, res: Response) => {
     res.json(data);
 });
 
+app.get("/incidents/:id", async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const { data: incident, error } = await supabase
+        .from("incidents")
+        .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
+        .eq("incident_id", id)
+        .single();
+
+    if (error) {
+        res.status(404).json({ message: "Incident not found" });
+        return;
+    }
+
+    const { data: incidentAlarms } = await supabase
+        .from("incident_alarms")
+        .select("alarm_id")
+        .eq("incident_id", id);
+
+    const alarmIds = incidentAlarms?.map((ia: any) => ia.alarm_id) ?? [];
+
+    const { data: alarms } = await supabase
+        .from("alarms")
+        .select("alarm_id, site, tehnologie, type, status")
+        .in("alarm_id", alarmIds);
+
+    res.json({ ...incident, alarms: alarms ?? [] });
+});
+
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))

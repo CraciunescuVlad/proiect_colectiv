@@ -18,7 +18,12 @@ const useIncidents = () => {
     useEffect(() => {
         const fetchIncidents = async () => {
             try {
-                const response = await fetch("http://localhost:3000/incidents?status=1");
+                const token = localStorage.getItem("token");
+                const response = await fetch("http://localhost:3000/incidents?status=1", {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                    },
+                });
                 const data = await response.json();
                 setIncidents(Array.isArray(data) ? data : []);
             } catch (err) {

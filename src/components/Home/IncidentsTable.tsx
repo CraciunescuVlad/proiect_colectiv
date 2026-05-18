@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import useIncidents from "../../hooks/useIncidents";
 import { useUser } from "../../context/UserContext";
 import { Pencil, Check, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const priorityColors: Record<string, { text: string; bg: string; border: string }> = {
     Critical: { text: "text-red-400",    bg: "bg-red-500/10",    border: "border-red-500/20" },
@@ -16,7 +17,12 @@ const AssignedEmail = ({ userId }: { userId: string }) => {
     useEffect(() => {
         const fetch_user = async () => {
             try {
-                const res = await fetch(`http://localhost:3000/users/${userId}`);
+                const token = localStorage.getItem("token");
+                const res = await fetch(`http://localhost:3000/users/${userId}`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                    },
+                });
                 const data = await res.json();
                 setEmail(data.email ?? null);
             } catch {
@@ -109,6 +115,7 @@ const MessageCell = ({ incidentId, initialMessage }: { incidentId: number; initi
 
 const IncidentsTable = () => {
     const { incidents, loading, error } = useIncidents();
+    const navigate = useNavigate();
 
     return (
         <div className="border border-white/10 rounded-2xl overflow-hidden mt-6">
@@ -136,6 +143,7 @@ const IncidentsTable = () => {
                     return (
                         <div
                             key={incident.incident_id}
+                            onClick={() => navigate(`/incident/${incident.incident_id}`)}
                             className="grid grid-cols-5 items-center px-4 py-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/10"
                         >
                             <span className="text-white/70 text-sm font-mono">INC{incident.incident_id}</span>

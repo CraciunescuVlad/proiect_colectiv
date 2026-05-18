@@ -45,7 +45,7 @@ const Home = () => {
             </div>
 
             {/* Chart */}
-            <IncidentChart />
+            {/*<IncidentChart />*/}
 
             {/* Table */}
             <IncidentsTable />
