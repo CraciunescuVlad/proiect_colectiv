@@ -4,29 +4,13 @@ from supabase import create_client
 import os
 from dotenv import load_dotenv
 
-alarm_id=[]
-site_id=[]
 techno=["2G", "3G", "4G", "5G"]
 nr_alarms=random.randint(1, 30)
-info_alarm=[]
-rows = []
 
 load_dotenv()
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
 
-def get_all_alarm_ids():
-    all_ids = []
-    page_size = 1000
-    offset = 0
-    while True:
-        batch = supabase.table("alarms").select("alarm_id").range(offset, offset + page_size - 1).execute().data
-        if not batch:
-            break
-        all_ids.extend(row["alarm_id"] for row in batch)
-        if len(batch) < page_size:
-            break
-        offset += page_size
-    return all_ids
+
 #returneaza setul cu alarmele active cele mai vechi din incidente (cele care "l-au generat")
 def get_oldest_alarm_per_active_incident():
 
@@ -273,16 +257,6 @@ def get_active_site_to_incident():
 def insert_incident_alarms(links):
     if not links:
         return
-    existing = supabase.table("incident_alarms").select("id").execute().data
-    existing_ids = {row["id"] for row in existing}
-
-    for link in links:
-        new_id = random.randint(100000, 999999)
-        while new_id in existing_ids:
-            new_id = random.randint(100000, 999999)
-        link["id"] = new_id
-        existing_ids.add(new_id)
-
     supabase.table("incident_alarms").insert(links).execute()
 
 
@@ -293,8 +267,6 @@ def insert_incident_alarms(links):
 # se da update la baza de date
 # dupa atasare, recalculeaza priority pentru incidentele care au primit alarme noi
 def deploy_new_alarms():
-
-    alarm_id_existente = get_all_alarm_ids()
     site_id = [row["id"] for row in supabase.table("site").select("id").execute().data]
     print(f"Site-uri incarcate: {len(site_id)}")
 
@@ -302,16 +274,11 @@ def deploy_new_alarms():
     print(f"Tipuri alarme incarcate: {len(info_alarm)}")
 
     site_to_incident = get_active_site_to_incident()
-    new_links = []
-
-    for alarm in range(nr_alarms):
-        this_alarm_id = random.randint(10000, 99999)
-        while this_alarm_id in alarm_id_existente or this_alarm_id in alarm_id:
-            this_alarm_id = random.randint(10000, 99999)
-        alarm_id.append(this_alarm_id)
-
+    
+    # Build alarms without ids, but remember which site each one is for
+    alarms_to_insert = []
+    for _ in range(nr_alarms):
         alarm_status = random.choice([0, 1])
-
         this_info = random.choice(info_alarm)
         this_site_id = random.choice(site_id)
         this_techno = random.choice(techno)
@@ -326,25 +293,30 @@ def deploy_new_alarms():
             else:
                 this_cancel_time_datetime = datetime.now(timezone.utc)
 
-        rows.append({
-            "alarm_id": this_alarm_id,
+        alarms_to_insert.append({
+            # NO alarm_id — Postgres will assign it
             "status": alarm_status,
             "start_time": this_alarm_datetime.isoformat(),
             "resolved_time": this_cancel_time_datetime.isoformat() if this_cancel_time_datetime else None,
             "type": this_info,
             "tehnologie": this_techno,
-            "site": this_site_id
+            "site": this_site_id,
         })
 
-        if this_site_id in site_to_incident:
-            new_links.append({
-                "incident_id": site_to_incident[this_site_id],
-                "alarm_id": this_alarm_id,
-                "created_at": this_alarm_datetime.isoformat(),
-            })
+    # Insert and capture the rows back (Supabase returns them with their new alarm_ids)
+    result = supabase.table("alarms").insert(alarms_to_insert).execute()
+    inserted_alarms = result.data
+    print(f"{len(inserted_alarms)} alarme inserate cu succes.")
 
-    supabase.table("alarms").insert(rows).execute()
-    print(f"{nr_alarms} alarme inserate cu succes.")
+    # Now build links using the real ids that came back
+    new_links = []
+    for alarm in inserted_alarms:
+        if alarm["site"] in site_to_incident:
+            new_links.append({
+                "incident_id": site_to_incident[alarm["site"]],
+                "alarm_id": alarm["alarm_id"],
+                "created_at": alarm["start_time"],
+            })
 
     if new_links:
         insert_incident_alarms(new_links)
