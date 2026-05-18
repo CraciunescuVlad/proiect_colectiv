@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import nodemailer from "nodemailer";
 import cron from "node-cron";
 import { exec } from "child_process";
 import createDashboardRouter from "./routes/dashboard";
@@ -21,6 +22,22 @@ const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const emailTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false,
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+});
+
+const sendEmail = (to: string, subject: string, text: string) =>
+  emailTransporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
+
+type SignupEntry = { userId: string; otp: string; expiry: number };
+const signupStore = new Map<string, SignupEntry>();
+
+type MfaEntry = { code: string; expiry: number; session: any };
+const mfaStore = new Map<string, MfaEntry>();
 
 app.use("/dashboard", createDashboardRouter(supabase));
 app.use("/map", createMapRouter(supabase));
@@ -42,55 +59,127 @@ const runScript = () => {
 
 
 
-cron.schedule("*/5 * * * *", runScript);
-runScript();
+//cron.schedule("*/5 * * * *", runScript);
+//runScript();
 app.post("/auth/login", async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.session) {
         res.status(401).json({ message: "Invalid email or password" });
         return;
     }
 
-    // Fetch role from your custom users table
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    mfaStore.set(email, { code, expiry: Date.now() + 5 * 60 * 1000, session: data.session });
+
+    try {
+        await sendEmail(
+            email,
+            "AlarmUP Login Verification",
+            `Your login verification code is: ${code}\n\nThis code expires in 5 minutes.`
+        );
+    } catch {
+        res.status(500).json({ message: "Failed to send verification email." });
+        return;
+    }
+
+    res.json({ mfaRequired: true });
+});
+
+app.post("/auth/verify-mfa", async (req: Request, res: Response) => {
+    const { email, code } = req.body;
+
+    const stored = mfaStore.get(email);
+    if (!stored) {
+        res.status(400).json({ message: "No pending login. Please log in again." });
+        return;
+    }
+    if (Date.now() > stored.expiry) {
+        mfaStore.delete(email);
+        res.status(400).json({ message: "Code expired. Please log in again." });
+        return;
+    }
+    if (stored.code !== code) {
+        res.status(400).json({ message: "Invalid code." });
+        return;
+    }
+
+    mfaStore.delete(email);
+
     const { data: userData } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", data.user.id)
+        .eq("id", stored.session.user.id)
         .single();
 
     const role = userData?.role ?? "viewer";
 
     res.json({
-        token: data.session.access_token,
-        user: {
-            id: data.user.id,
-            email: data.user.email,
-            role,
-        },
+        token: stored.session.access_token,
+        user: { id: stored.session.user.id, email: stored.session.user.email, role },
     });
 });
 
-
 app.post("/auth/signup", async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+    const { data, error } = await supabase.auth.admin.generateLink({
+        type: "signup",
+        email,
+        password,
+    });
 
-  if (error) {
-    res.status(400).json({ message: error.message });
-    return;
-  }
+    if (error) {
+        res.status(400).json({ message: error.message });
+        return;
+    }
 
-  res.status(201).json({ message: "Account created successfully." });
+    const otp = data.properties.email_otp;
+    signupStore.set(email, { userId: data.user.id, otp, expiry: Date.now() + 24 * 60 * 60 * 1000 });
+
+    try {
+        await sendEmail(
+            email,
+            "Verify your AlarmUP account",
+            `Your verification code is: ${otp}\n\nEnter this code to confirm your account. It expires in 24 hours.`
+        );
+    } catch {
+        res.status(500).json({ message: "Failed to send verification email." });
+        return;
+    }
+
+    res.status(201).json({ message: "Verification code sent to your email." });
+});
+
+app.post("/auth/verify-email", async (req: Request, res: Response) => {
+    const { email, otp } = req.body;
+
+    const stored = signupStore.get(email);
+    if (!stored) {
+        res.status(400).json({ message: "No pending verification. Please sign up again." });
+        return;
+    }
+    if (Date.now() > stored.expiry) {
+        signupStore.delete(email);
+        res.status(400).json({ message: "Code expired. Please sign up again." });
+        return;
+    }
+    if (stored.otp !== otp) {
+        res.status(400).json({ message: "Invalid code." });
+        return;
+    }
+
+    signupStore.delete(email);
+
+    const { error } = await supabase.auth.admin.updateUserById(stored.userId, { email_confirm: true });
+    if (error) {
+        res.status(500).json({ message: "Failed to confirm account." });
+        return;
+    }
+
+    res.json({ message: "Email verified. You can now log in." });
 });
 
 // GET toate site-urile
