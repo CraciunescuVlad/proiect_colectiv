@@ -42,8 +42,8 @@ const runScript = () => {
 
 
 
-cron.schedule("*/5 * * * *", runScript);
-runScript();
+//cron.schedule("*/5 * * * *", runScript);
+//runScript();
 app.post("/auth/login", async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
