@@ -67,23 +67,31 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
     }, []);
 
     // 2. Gestionare Markeri
+    const markersRef = useRef<mapboxgl.Marker[]>([]); // 1. Adaugă o referință persistentă pentru markeri
+
     useEffect(() => {
         if (!map.current || sites.length === 0) return;
 
-
-        const markers: mapboxgl.Marker[] = [];
-
         const updateMarkers = () => {
-            // Curata markerii vechi
-            markers.forEach(m => m.remove());
+            // 2. Curăță markerii vechi folosind referința persistentă
+            markersRef.current.forEach(m => m.remove());
+            markersRef.current = []; // Resetează vectorul
 
             sites.forEach((site) => {
                 const hasIncident = incidentSites.has(site.id);
+
                 // Filtram alarmele standalone specifice acestui site
                 const siteStandaloneAlarms = standalone_alarms.filter(a =>
                     a.site === site.id &&
                     (selectedTechs.length === 0 || selectedTechs.includes(a.tehnologie))
-                );                const hasStandalone = siteStandaloneAlarms.length > 0;
+                );
+                const hasStandalone = siteStandaloneAlarms.length > 0;
+
+                // --- OPȚIONAL / OPTIMIZARE ---
+                // Dacă ai selectat filtre de tehnologie și site-ul nu are alarme pe acele tehnologii,
+                // și nici nu are un incident major, poate vrei să nu-l mai afișezi deloc sau să-l schimbi.
+                // Dacă vrei să ascunzi complet site-urile care nu se potrivesc filtrului, deblochează linia de mai jos:
+                // if (selectedTechs.length > 0 && !hasStandalone && !hasIncident) return;
 
                 const el = document.createElement("div");
                 el.className = "marker-container";
@@ -97,25 +105,28 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
                     el.innerHTML = `<svg width="16" height="16"><polygon points="8,0 16,16 0,16" fill="#3b82f6" stroke="white" stroke-width="1.5"/></svg>`;
                 }
 
-
                 const marker = new mapboxgl.Marker(el)
                     .setLngLat([site.longitude, site.latitudine])
                     .addTo(map.current!);
 
                 el.addEventListener("click", () => onMarkerClick(site.id));
 
-                markers.push(marker);
+                // 3. Salvează markerul nou în referință
+                markersRef.current.push(marker);
             });
         };
 
-        if (map.current.isStyleLoaded()) updateMarkers();
-        else map.current.once("load", updateMarkers);
+        if (map.current.isStyleLoaded()) {
+            updateMarkers();
+        } else {
+            map.current.once("load", updateMarkers);
+        }
 
+        // 4. Funcția de cleanup curăță markerii la unmount sau înainte de următoarea rulare
         return () => {
-            markers.forEach(m => m.remove());
+            markersRef.current.forEach(m => m.remove());
         };
-    }, [sites, standalone_alarms, incidents, incidentSites,selectedTechs]);
-
+    }, [sites, standalone_alarms, incidents, incidentSites, selectedTechs]);
     useEffect(() => {
         setTimeout(() => map.current?.resize(), 300);
     }, [view]);
