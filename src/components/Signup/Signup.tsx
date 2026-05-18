@@ -48,8 +48,8 @@ const Signup = () => {
     };
 
     const handleVerify = async () => {
-        if (otp.length !== 6) {
-            setError("Please enter the 6-digit code.");
+        if (otp.length < 6) {
+            setError("Please enter the verification code.");
             return;
         }
 
@@ -102,9 +102,9 @@ const Signup = () => {
 
                         <input
                             type="text"
-                            placeholder="000000"
+                            placeholder="········"
                             value={otp}
-                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            onChange={(e) => setOtp(e.target.value.slice(0, 8))}
                             className="bg-white/10 text-white placeholder-white/30 border border-white/20 rounded-lg px-4 py-2 w-full mb-4 outline-none focus:border-white/50 text-center text-2xl tracking-widest"
                         />
 
