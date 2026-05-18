@@ -178,6 +178,30 @@ const getIncidentIdsForSite = async (
 };
 
 /**
+ * Resolves the incident IDs assigned to a given user.
+ *
+ * @param supabase The Supabase client
+ * @param assignedTo The user id to filter incidents by
+ * @return The incident IDs assigned to that user, or an error
+ */
+const getIncidentIdsForAssignee = async (
+    supabase: SupabaseClient,
+    assignedTo: string
+): Promise<{ incidentIds: number[]; error: any }> => {
+    const { data, error } = await fetchAll<{ incident_id: number }>((rangeFrom, rangeTo) =>
+        supabase
+            .from("incidents")
+            .select("incident_id")
+            .eq("assigned_to", assignedTo)
+            .range(rangeFrom, rangeTo)
+    );
+    if (error || !data) {
+        return { incidentIds: [], error };
+    }
+    return { incidentIds: data.map(i => i.incident_id), error: null };
+};
+
+/**
  * Resolves the incident filter for either a site or an assignee.
  * Filters are mutually exclusive: assignedTo takes priority when both are provided.
  * Returns null when neither filter is requested, so callers can skip the .in() clause entirely.
@@ -211,29 +235,7 @@ const resolveIncidentFilter = async (
 };
 
 
-/**
- * Resolves the incident IDs assigned to a given user.
- *
- * @param supabase The Supabase client
- * @param assignedTo The user id to filter incidents by
- * @return The incident IDs assigned to that user, or an error
- */
-const getIncidentIdsForAssignee = async (
-    supabase: SupabaseClient,
-    assignedTo: string
-): Promise<{ incidentIds: number[]; error: any }> => {
-    const { data, error } = await fetchAll<{ incident_id: number }>((rangeFrom, rangeTo) =>
-        supabase
-            .from("incidents")
-            .select("incident_id")
-            .eq("assigned_to", assignedTo)
-            .range(rangeFrom, rangeTo)
-    );
-    if (error || !data) {
-        return { incidentIds: [], error };
-    }
-    return { incidentIds: data.map(i => i.incident_id), error: null };
-};
+
 
 /**
  * Builds the Express router exposing all statistics endpoints.
