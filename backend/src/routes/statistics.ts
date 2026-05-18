@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
-
+import { requireAuth, requireAdmin } from "../middleware/auth";
 /**
  * Paginates over Supabase results to bypass the default 1000-row limit.
  * Calls the builder repeatedly with sliding ranges until a short page is returned.
@@ -43,6 +43,19 @@ const fetchAll = async <T>(
  * @return The trimmed site id, or null if not provided
  */
 const parseSiteId = (raw: any): string | null => {
+    if (typeof raw !== "string" || raw.trim() === "") {
+        return null;
+    }
+    return raw.trim();
+};
+
+/**
+ * Parses the optional 'assignedTo' query param into a trimmed string, or null if missing or blank.
+ *
+ * @param raw The raw query param value
+ * @return The trimmed assigned_to user id, or null if not provided
+ */
+const parseAssignedTo = (raw: any): string | null => {
     if (typeof raw !== "string" || raw.trim() === "") {
         return null;
     }
@@ -165,26 +178,61 @@ const getIncidentIdsForSite = async (
 };
 
 /**
- * Resolves the incident filter for a given site.
- * Returns null when no site filter is requested, so callers can skip the .in() clause entirely.
- * An empty array means the site has no incidents and the caller should short-circuit.
+ * Resolves the incident filter for either a site or an assignee.
+ * Filters are mutually exclusive: assignedTo takes priority when both are provided.
+ * Returns null when neither filter is requested, so callers can skip the .in() clause entirely.
+ * An empty array means the filter has no matching incidents and the caller should short-circuit.
  *
  * @param supabase The Supabase client
- * @param siteId The site id to filter by, or null for no filter
+ * @param siteId The site id to filter by, or null
+ * @param assignedTo The assignee user id to filter by, or null
  * @return The list of incident IDs to filter by, or null if no filter is needed
  */
 const resolveIncidentFilter = async (
     supabase: SupabaseClient,
-    siteId: string | null
+    siteId: string | null,
+    assignedTo: string | null
 ): Promise<{ incidentFilter: number[] | null; error: any }> => {
-    if (siteId === null) {
-        return { incidentFilter: null, error: null };
+    if (assignedTo !== null) {
+        const { incidentIds, error } = await getIncidentIdsForAssignee(supabase, assignedTo);
+        if (error) {
+            return { incidentFilter: null, error };
+        }
+        return { incidentFilter: incidentIds, error: null };
     }
-    const { incidentIds, error } = await getIncidentIdsForSite(supabase, siteId);
-    if (error) {
-        return { incidentFilter: null, error };
+    if (siteId !== null) {
+        const { incidentIds, error } = await getIncidentIdsForSite(supabase, siteId);
+        if (error) {
+            return { incidentFilter: null, error };
+        }
+        return { incidentFilter: incidentIds, error: null };
     }
-    return { incidentFilter: incidentIds, error: null };
+    return { incidentFilter: null, error: null };
+};
+
+
+/**
+ * Resolves the incident IDs assigned to a given user.
+ *
+ * @param supabase The Supabase client
+ * @param assignedTo The user id to filter incidents by
+ * @return The incident IDs assigned to that user, or an error
+ */
+const getIncidentIdsForAssignee = async (
+    supabase: SupabaseClient,
+    assignedTo: string
+): Promise<{ incidentIds: number[]; error: any }> => {
+    const { data, error } = await fetchAll<{ incident_id: number }>((rangeFrom, rangeTo) =>
+        supabase
+            .from("incidents")
+            .select("incident_id")
+            .eq("assigned_to", assignedTo)
+            .range(rangeFrom, rangeTo)
+    );
+    if (error || !data) {
+        return { incidentIds: [], error };
+    }
+    return { incidentIds: data.map(i => i.incident_id), error: null };
 };
 
 /**
@@ -202,6 +250,28 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
      */
     router.get("/test", (req: Request, res: Response) => {
         res.json({ message: "statistics router works" });
+    });
+
+    /**
+ * Returns the list of viewer profiles, sorted ascending by email.
+ * Restricted to admins. Used to populate the profile filter dropdown in Statistics.
+ */
+    router.get("/profiles", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+        const { data, error } = await fetchAll<{ id: string; email: string }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("profiles")
+                .select("id, email")
+                .eq("role", "viewer")
+                .order("email", { ascending: true })
+                .range(rangeFrom, rangeTo)
+        );
+
+        if (error || !data) {
+            res.status(500).json({ message: error?.message ?? "No data" });
+            return;
+        }
+
+        res.json(data);
     });
 
     /**
@@ -233,9 +303,11 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
      */
     router.get("/incidents/chart", async (req: Request, res: Response) => {
         const siteId = parseSiteId(req.query.siteId);
+        const assignedTo = parseAssignedTo(req.query.assignedTo);
+
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
 
-        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId);
+        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
         if (filterErr) {
             res.status(500).json({ message: filterErr.message ?? "No data" });
             return;
@@ -329,6 +401,7 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
      */
     router.get("/alarms/chart-by-severity", async (req: Request, res: Response) => {
         const siteId = parseSiteId(req.query.siteId);
+        
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
 
         const { data, error } = await fetchAll<any>((rangeFrom, rangeTo) => {
@@ -389,9 +462,11 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
      */
     router.get("/incidents/chart-by-priority", async (req: Request, res: Response) => {
         const siteId = parseSiteId(req.query.siteId);
+        const assignedTo = parseAssignedTo(req.query.assignedTo);
+
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
 
-        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId);
+        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
         if (filterErr) {
             res.status(500).json({ message: filterErr.message ?? "No data" });
             return;
@@ -457,9 +532,11 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
      */
     router.get("/incidents/avg-resolution/chart", async (req: Request, res: Response) => {
         const siteId = parseSiteId(req.query.siteId);
+        const assignedTo = parseAssignedTo(req.query.assignedTo);
+
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
 
-        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId);
+        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
         if (filterErr) {
             res.status(500).json({ message: filterErr.message ?? "No data" });
             return;
@@ -567,9 +644,10 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
      */
     router.get("/incidents/by-technology", async (req: Request, res: Response) => {
         const siteId = parseSiteId(req.query.siteId);
+        const assignedTo = parseAssignedTo(req.query.assignedTo);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
 
-        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId);
+        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
         if (filterErr) {
             res.status(500).json({ message: filterErr.message ?? "No data" });
             return;
@@ -664,6 +742,76 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
         res.json(result);
     });
 
+    /**
+ * Returns the 3 KPI totals for the viewer statistics view.
+ * - avgResolutionMinutes: average resolution time across all resolved incidents in the range
+ * - assignedCount: total incidents assigned to the user with start_time in the range
+ * - resolvedCount: total resolved incidents with end_time in the range
+ * Requires 'assignedTo'; returns 400 otherwise.
+ */
+    router.get("/incidents/kpis", async (req: Request, res: Response) => {
+        const assignedTo = parseAssignedTo(req.query.assignedTo);
+        const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
+
+        if (assignedTo === null) {
+            res.status(400).json({ message: "assignedTo is required" });
+            return;
+        }
+
+        const { data: assignedData, error: assignedErr } = await fetchAll<{ start_time: string }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("incidents")
+                .select("start_time")
+                .eq("assigned_to", assignedTo)
+                .gte("start_time", startDate.toISOString())
+                .lte("start_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo)
+        );
+
+        if (assignedErr || !assignedData) {
+            res.status(500).json({ message: assignedErr?.message ?? "No data" });
+            return;
+        }
+
+        const { data: resolvedData, error: resolvedErr } = await fetchAll<{ start_time: string; end_time: string }>((rangeFrom, rangeTo) =>
+            supabase
+                .from("incidents")
+                .select("start_time, end_time")
+                .eq("assigned_to", assignedTo)
+                .not("end_time", "is", null)
+                .gte("end_time", startDate.toISOString())
+                .lte("end_time", endDate.toISOString())
+                .range(rangeFrom, rangeTo)
+        );
+
+        if (resolvedErr || !resolvedData) {
+            res.status(500).json({ message: resolvedErr?.message ?? "No data" });
+            return;
+        }
+
+        let totalMinutes = 0;
+        let resolvedCount = 0;
+        resolvedData.forEach((inc: any) => {
+            const start = new Date(inc.start_time).getTime();
+            const end = new Date(inc.end_time).getTime();
+            const duration = (end - start) / (1000 * 60);
+            if (duration >= 0) {
+                totalMinutes += duration;
+                resolvedCount += 1;
+            }
+        });
+
+        let avgResolutionMinutes = 0;
+        if (resolvedCount > 0) {
+            avgResolutionMinutes = Math.round(totalMinutes / resolvedCount);
+        }
+
+        res.json({
+            avgResolutionMinutes,
+            assignedCount: assignedData.length,
+            resolvedCount,
+        });
+    });
     return router;
 };
 
