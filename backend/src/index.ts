@@ -137,13 +137,13 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
     }
 
     const otp = data.properties.email_otp;
-    signupStore.set(email, { userId: data.user.id, otp, expiry: Date.now() + 24 * 60 * 60 * 1000 });
+    signupStore.set(email, { userId: data.user.id, otp, expiry: Date.now() + 5 * 60 * 1000 });
 
     try {
         await sendEmail(
             email,
             "Verify your AlarmUP account",
-            `Your verification code is: ${otp}\n\nEnter this code to confirm your account. It expires in 24 hours.`
+            `Your verification code is: ${otp}\n\nEnter this code to confirm your account. It expires in 5 minutes.`
         );
     } catch {
         res.status(500).json({ message: "Failed to send verification email." });
@@ -390,7 +390,7 @@ app.get("/users/:id", requireAuth, async (req: Request, res: Response) => {
     });
 });
 
-app.patch("/incidents/:id/message", async (req: Request, res: Response) => {
+app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
     const { messages } = req.body;
     const token = req.headers.authorization?.split(" ")[1];
