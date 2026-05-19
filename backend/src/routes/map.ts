@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
+import {requireAuth} from "../middleware/auth";
 
 const createMapRouter = (supabase: SupabaseClient) => {
     const router = Router();
@@ -179,7 +180,96 @@ const createMapRouter = (supabase: SupabaseClient) => {
         res.json(result)
     })
 
+    // ------------------------------------------------EXTRA FOR THE MAIN MAP-------------------------------------------
+
+    router.get("/active_incidents", requireAuth, async (req: Request, res: Response) => {
+        const { data: incidents, error: incError } = await supabase
+            .from("incidents")
+            .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
+            .eq("status", 1)
+
+        if (incError) {
+            res.status(500).json({ message: incError.message })
+            return
+        }
+        if (!incidents || incidents.length === 0) {
+            return res.json([]);
+        }
+
+        const incidentIds = incidents.map(i => i.incident_id);
+
+        //Get all links from incident_alarms
+        const { data: incidentAlarms, error: iaError } = await supabase
+            .from("incident_alarms")
+            .select("incident_id, alarm_id")
+            .in("incident_id", incidentIds)
+
+        if (iaError) {
+            res.status(500).json({ message: iaError.message })
+            return
+        }
+
+        const alarmIds = incidentAlarms.map(ia => ia.alarm_id);
+
+        //Get all associated alarms
+        const { data: alarms, error: alarmError } = await supabase
+            .from("alarms")
+            .select("alarm_id, site, tehnologie, type, status")
+            .in("alarm_id", alarmIds)
+
+        if (alarmError) {
+            res.status(500).json({ message: alarmError.message })
+            return
+        }
+
+        // each incident receives an array of alarms
+        const result = incidents.map(i => ({
+            ...i,
+            alarms: incidentAlarms
+                .filter(ia => ia.incident_id === i.incident_id)
+                .map(ia => alarms.find(a => a.alarm_id === ia.alarm_id))
+                .filter(Boolean)
+        }));
+
+        res.json(result)
+    })
+
+    router.get("/standalone_alarms", requireAuth, async (req: Request, res: Response) => {
+        try {
+            // 1. Extract the IDs of all alarms that are part of active incidents
+            const { data: incidentAlarms, error: iaError } = await supabase
+                .from("incident_alarms")
+                .select("alarm_id");
+
+            if (iaError) throw iaError;
+
+            // create a list of busy alarm IDs
+            const busyAlarmIds = incidentAlarms.map(ia => ia.alarm_id);
+
+            // 2. Extract active alarms that are NOT in the list above
+            let query = supabase
+                .from("alarms")
+                .select("alarm_id, status, start_time, type, tehnologie, site")
+                .eq("status", 1); // Doar alarme active
+
+            // If we have alarms in incidents, we exclude them
+            if (busyAlarmIds.length > 0) {
+                query = query.not("alarm_id", "in", `(${busyAlarmIds.join(",")})`);
+            }
+
+            const { data: standaloneAlarms, error: alarmError } = await query;
+
+            if (alarmError) throw alarmError;
+
+            res.json(standaloneAlarms);
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    });
+
     return router;
 }
+
+
 
 export default createMapRouter;
