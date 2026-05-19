@@ -1,9 +1,7 @@
 import useAlarms from "../../hooks/useAlarms";
 import useStats from "../../hooks/useStats";
 import StatCard from "./StatCard";
-import IncidentChart from "./IncidentChart";
 import { ArrowDownToLine, Calendar, ChevronDown } from "lucide-react";
-import { locations } from "../../data/locations";
 import IncidentsTable from "./IncidentsTable.tsx";
 
 const Home = () => {
@@ -11,10 +9,10 @@ const Home = () => {
     const { stats } = useStats();
 
     const totalAlarms = statsLoading ? "..." : `${stats?.total ?? 0}`;
-    const totalIncidents = locations.length;
+    const totalIncidents = statsLoading ? "..." : `${stats?.totalIncidents ?? 0}`;
+    const criticalCount = statsLoading ? "..." : `${stats?.criticalCount ?? 0}`;
     const resolutionRate = statsLoading ? "..." : `${stats?.resolutionRate ?? 0}%`;
     const avgResolveTime = statsLoading ? "..." : (stats?.avgResolveTime ?? "N/A");
-    const criticalCount = locations.filter(l => l.severity === "critical").length;
 
     return (
         <div className="flex flex-col h-screen bg-[#060010] px-24 py-6 overflow-y-auto">
