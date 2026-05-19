@@ -49,10 +49,10 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
         map.current.addControl(new mapboxgl.NavigationControl());
 
 
-        // Expunem funcția global pentru a putea fi apelată din HTML-ul injectat de Mapbox
+        // Expunem funcția global pentru a putea fi apelata din HTML-ul injectat de Mapbox
         window.openAlarmDetails = async (alarmType: string) => {
             try {
-                const res = await fetch(`http://localhost:3000/alarm_details/${alarmType}`);
+                const res = await fetch(`http://localhost:3000/map/alarm-type/${alarmType}`);
                 const data = await res.json();
                 setSelectedAlarmInfo(data);
                 setIsModalOpen(true);
@@ -73,9 +73,9 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
         if (!map.current || sites.length === 0) return;
 
         const updateMarkers = () => {
-            // 2. Curăță markerii vechi folosind referința persistentă
+            // 2. Curata markerii vechi folosind referința persistenta
             markersRef.current.forEach(m => m.remove());
-            markersRef.current = []; // Resetează vectorul
+            markersRef.current = []; // Reseteaza vectorul
 
             sites.forEach((site) => {
                 const hasIncident = incidentSites.has(site.id);
@@ -87,11 +87,6 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
                 );
                 const hasStandalone = siteStandaloneAlarms.length > 0;
 
-                // --- OPȚIONAL / OPTIMIZARE ---
-                // Dacă ai selectat filtre de tehnologie și site-ul nu are alarme pe acele tehnologii,
-                // și nici nu are un incident major, poate vrei să nu-l mai afișezi deloc sau să-l schimbi.
-                // Dacă vrei să ascunzi complet site-urile care nu se potrivesc filtrului, deblochează linia de mai jos:
-                // if (selectedTechs.length > 0 && !hasStandalone && !hasIncident) return;
 
                 const el = document.createElement("div");
                 el.className = "marker-container";
@@ -111,7 +106,7 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
 
                 el.addEventListener("click", () => onMarkerClick(site.id));
 
-                // 3. Salvează markerul nou în referință
+                // 3. Salveaza markerul nou în referinta
                 markersRef.current.push(marker);
             });
         };
@@ -122,7 +117,7 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
             map.current.once("load", updateMarkers);
         }
 
-        // 4. Funcția de cleanup curăță markerii la unmount sau înainte de următoarea rulare
+        // 4. Funcția de cleanup curata markerii la unmount sau inainte de urmatoarea rulare
         return () => {
             markersRef.current.forEach(m => m.remove());
         };

@@ -84,9 +84,9 @@ const MapPage = () => {
         const headers = { Authorization: `Bearer ${token}` };
 
         Promise.all([
-            fetch("http://localhost:3000/sites", { headers }).then(res => res.json()),
-            fetch("http://localhost:3000/standalone_alarms", { headers }).then(res => res.json()),
-            fetch("http://localhost:3000/active_incidents", { headers }).then(res => res.json()),
+            fetch("http://localhost:3000/map/sites", { headers }).then(res => res.json()),
+            fetch("http://localhost:3000/map/standalone_alarms", { headers }).then(res => res.json()),
+            fetch("http://localhost:3000/map/active_incidents", { headers }).then(res => res.json()),
         ]).then(([sitesData, alarmsData, incidentsData]: [Site[], Alarm[], Incident[]]) => {
             setSites(sitesData);
             setStandaloneAlarms(alarmsData);
