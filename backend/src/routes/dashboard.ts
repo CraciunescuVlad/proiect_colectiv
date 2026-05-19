@@ -73,32 +73,52 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
     })
 
     router.get("/stats", async (req: Request, res: Response) => {
-        const { data, error } = await supabase
-            .from("alarms")
-            .select("alarm_id, status, start_time, resolved_time")
+        // Counts din DB direct, fără să încarci toate rândurile
+        const [
+            { count: total },
+            { count: resolved },
+            { count: active },
+            { count: totalIncidents },
+            { count: criticalCount },
+            { data: resolvedIncidents, error: resolvedError }
+        ] = await Promise.all([
+            supabase.from("alarms").select("*", { count: "exact", head: true }),
+            supabase.from("alarms").select("*", { count: "exact", head: true }).eq("status", 0),
+            supabase.from("alarms").select("*", { count: "exact", head: true }).eq("status", 1),
+            supabase.from("incidents").select("*", { count: "exact", head: true }),
+            supabase.from("incidents").select("*", { count: "exact", head: true }).eq("priority", "Critical"),
+            supabase.from("incidents").select("start_time, end_time").eq("status", 0).not("end_time", "is", null).range(0, 9999)        ])
 
-        if (error) {
-            res.status(500).json({ message: error.message })
+        if (resolvedError) {
+            res.status(500).json({ message: resolvedError.message })
             return
         }
 
-        const total = data.length
-        const resolved = data.filter((a: any) => a.status === 0).length
-        const active = data.filter((a: any) => a.status === 1).length
-        const resolutionRate = total > 0 ? ((resolved / total) * 100).toFixed(1) : "0.0"
+        const resolutionRate = total && total > 0
+            ? (((resolved ?? 0) / total) * 100).toFixed(1)
+            : "0.0"
 
-        const resolvedAlarms = data.filter((a: any) => a.status === 0 && a.resolved_time && a.start_time)
-        const avgResolveMs = resolvedAlarms.length > 0
-            ? resolvedAlarms.reduce((sum: number, a: any) => {
-            return sum + (new Date(a.resolved_time).getTime() - new Date(a.start_time).getTime())
-        }, 0) / resolvedAlarms.length
+        const avgResolveMs = resolvedIncidents && resolvedIncidents.length > 0
+            ? resolvedIncidents.reduce((sum: number, i: any) => {
+            return sum + (new Date(i.end_time).getTime() - new Date(i.start_time).getTime())
+        }, 0) / resolvedIncidents.length
             : 0
 
         const avgResolveHours = Math.floor(avgResolveMs / (1000 * 60 * 60))
         const avgResolveMinutes = Math.floor((avgResolveMs % (1000 * 60 * 60)) / (1000 * 60))
-        const avgResolveTime = resolvedAlarms.length > 0 ? `${avgResolveHours}h ${avgResolveMinutes}m` : "N/A"
+        const avgResolveTime = resolvedIncidents && resolvedIncidents.length > 0
+            ? `${avgResolveHours}h ${avgResolveMinutes}m`
+            : "N/A"
 
-        res.json({ total, resolved, active, resolutionRate, avgResolveTime })
+        res.json({
+            total: total ?? 0,
+            resolved: resolved ?? 0,
+            active: active ?? 0,
+            resolutionRate,
+            avgResolveTime,
+            totalIncidents: totalIncidents ?? 0,
+            criticalCount: criticalCount ?? 0
+        })
     })
 
     return router;

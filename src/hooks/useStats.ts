@@ -6,6 +6,8 @@ interface Stats {
     active: number;
     resolutionRate: string;
     avgResolveTime: string;
+    totalIncidents: number;
+    criticalCount: number;
 }
 
 const useStats = () => {
