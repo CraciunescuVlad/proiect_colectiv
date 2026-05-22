@@ -8,7 +8,7 @@ type ChartPoint = {
 // Generic chart data hook used by LineChartCard
 // Builds a URL with optional date range, site filter, and assignee filter
 // Cancels stale responses when params change rapidly to avoid race conditions
-const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string | null, assignedTo?: string | null) => {
+const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string | null, assignedTo?: string | null, granularity: "day" | "week" | "month" = "day") => {
     const [data, setData] = useState<ChartPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -39,6 +39,10 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string 
                 }
                 if (assignedTo !== null && assignedTo !== undefined && assignedTo !== "") {
                     params.append("assignedTo", assignedTo);
+                }
+
+                if (granularity !== "day") {
+                    params.append("granularity", granularity);
                 }
 
                 let url = `http://localhost:3000/statistics/${endpoint}`;
@@ -76,7 +80,7 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string 
         return () => {
             cancelled = true;
         };
-    }, [endpoint, from?.getTime(), to?.getTime(), siteId, assignedTo]);
+    }, [endpoint, from?.getTime(), to?.getTime(), siteId, assignedTo, granularity]);
 
     return { data, loading, error };
 };

@@ -115,3 +115,136 @@ export const forEachDay = (
         cursor.setDate(cursor.getDate() + 1);
     }
 };
+
+export type Granularity = "day" | "week" | "month";
+
+/**
+ * Parses the optional 'granularity' query param into "day", "week", or "month".
+ * Defaults to "day" when missing or invalid.
+ *
+ * @param raw The raw query param value
+ * @return The resolved granularity
+ */
+export const parseGranularity = (raw: any): Granularity => {
+    if (raw === "week" || raw === "month") {
+        return raw;
+    }
+    return "day";
+};
+
+/**
+ * Returns the Monday of the ISO week containing the given date, at local midnight.
+ *
+ * @param d The reference date
+ * @return The start of that week
+ */
+const startOfWeek = (d: Date): Date => {
+    const out = new Date(d);
+    out.setHours(0, 0, 0, 0);
+    const day = out.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    out.setDate(out.getDate() + diff);
+    return out;
+};
+
+/**
+ * Returns the first day of the month containing the given date, at local midnight.
+ *
+ * @param d The reference date
+ * @return The start of that month
+ */
+const startOfMonth = (d: Date): Date => {
+    const out = new Date(d.getFullYear(), d.getMonth(), 1);
+    out.setHours(0, 0, 0, 0);
+    return out;
+};
+
+/**
+ * Formats a date as "DD MMM" in Romanian locale, e.g. "19 apr".
+ *
+ * @param d The date to format
+ * @return The formatted short label
+ */
+const formatShort = (d: Date): string => {
+    return d.toLocaleDateString("ro-RO", { day: "2-digit", month: "short" });
+};
+
+/**
+ * Computes the bucket label for a given date under the requested granularity.
+ * For week and month buckets, the label is clamped to the requested range, so the
+ * first and last buckets show their actual partial span (e.g. "19 apr - 30 apr").
+ *
+ * @param d The date being bucketed
+ * @param granularity The bucket size
+ * @param rangeStart The start of the requested range (used to clamp partial buckets)
+ * @param rangeEnd The end of the requested range (used to clamp partial buckets)
+ * @return The label that should be used as the x-axis key for that bucket
+ */
+export const bucketLabel = (
+    d: Date,
+    granularity: Granularity,
+    rangeStart: Date,
+    rangeEnd: Date
+): string => {
+    if (granularity === "day") {
+        return formatDayLabel(d);
+    }
+
+    const rangeStartDay = new Date(rangeStart);
+    rangeStartDay.setHours(0, 0, 0, 0);
+    const rangeEndDay = new Date(rangeEnd);
+    rangeEndDay.setHours(0, 0, 0, 0);
+
+    let bucketStart: Date;
+    let bucketEnd: Date;
+    if (granularity === "week") {
+        bucketStart = startOfWeek(d);
+        bucketEnd = new Date(bucketStart);
+        bucketEnd.setDate(bucketEnd.getDate() + 6);
+    } else {
+        bucketStart = startOfMonth(d);
+        bucketEnd = new Date(bucketStart.getFullYear(), bucketStart.getMonth() + 1, 0);
+        bucketEnd.setHours(0, 0, 0, 0);
+    }
+
+    const effectiveStart = bucketStart < rangeStartDay ? rangeStartDay : bucketStart;
+    const effectiveEnd = bucketEnd > rangeEndDay ? rangeEndDay : bucketEnd;
+
+    return `${formatShort(effectiveStart)} - ${formatShort(effectiveEnd)}`;
+};
+
+/**
+ * Iterates bucket by bucket from startDate to endDate (inclusive), invoking the callback
+ * with each bucket's label exactly once. Bucket size is controlled by 'granularity'.
+ *
+ * @param startDate The first day to include
+ * @param endDate The last day to include
+ * @param granularity The bucket size (day, week, or month)
+ * @param callback Function invoked once per bucket with the formatted label
+ */
+export const forEachBucket = (
+    startDate: Date,
+    endDate: Date,
+    granularity: Granularity,
+    callback: (label: string) => void
+): void => {
+    if (granularity === "day") {
+        forEachDay(startDate, endDate, callback);
+        return;
+    }
+
+    const cursor = new Date(startDate);
+    cursor.setHours(0, 0, 0, 0);
+    const lastDay = new Date(endDate);
+    lastDay.setHours(0, 0, 0, 0);
+
+    const seen = new Set<string>();
+    while (cursor <= lastDay) {
+        const label = bucketLabel(cursor, granularity, startDate, endDate);
+        if (!seen.has(label)) {
+            seen.add(label);
+            callback(label);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+    }
+};

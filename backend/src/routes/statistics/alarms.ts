@@ -6,6 +6,9 @@ import {
     parseDateRange,
     formatDayLabel,
     forEachDay,
+    parseGranularity,
+    bucketLabel,
+    forEachBucket,
 } from "./helpers";
 
 /**
@@ -25,6 +28,7 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
     router.get("/alarms/chart", async (req: Request, res: Response) => {
         const siteId = parseSiteId(req.query.siteId);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
+        const granularity = parseGranularity(req.query.granularity);
 
         const { data, error } = await fetchAll<{ start_time: string }>((rangeFrom, rangeTo) => {
             let q = supabase
@@ -46,15 +50,15 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
         }
 
         const grouped: Record<string, number> = {};
-        data.forEach((alarm: any) => {
-            const label = formatDayLabel(new Date(alarm.start_time));
-            grouped[label] = (grouped[label] || 0) + 1;
-        });
+    data.forEach((alarm: any) => {
+        const label = bucketLabel(new Date(alarm.start_time), granularity, startDate, endDate);
+        grouped[label] = (grouped[label] || 0) + 1;
+    });
 
-        const result: { date: string; value: number }[] = [];
-        forEachDay(startDate, endDate, (label) => {
-            result.push({ date: label, value: grouped[label] || 0 });
-        });
+    const result: { date: string; value: number }[] = [];
+    forEachBucket(startDate, endDate, granularity, (label) => {
+        result.push({ date: label, value: grouped[label] || 0 });
+    });
 
         res.json(result);
     });
