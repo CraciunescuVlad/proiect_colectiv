@@ -7,7 +7,7 @@ type PiePoint = {
 
 // Fetches a name/value distribution from a given endpoint
 // Optionally filtered by site
-const useTechnologyDistribution = (endpoint: string, from?: Date, to?: Date, siteId?: string | null, assignedTo?: string | null) => {
+const useTechnologyDistribution = (endpoint: string, from?: Date, to?: Date, siteIds?: string[] | null, assignedTo?: string | null) => {
     const [data, setData] = useState<PiePoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -29,9 +29,9 @@ const useTechnologyDistribution = (endpoint: string, from?: Date, to?: Date, sit
                     params.append("from", formatDate(from));
                     params.append("to", formatDate(to));
                 }
-                if (siteId !== null && siteId !== undefined && siteId !== "") {
-                    params.append("siteId", siteId);
-                }
+                if (siteIds && siteIds.length > 0) {
+    params.append("siteId", siteIds.join(","));
+}
 
                 if (assignedTo !== null && assignedTo !== undefined && assignedTo !== "") {
                     params.append("assignedTo", assignedTo);
@@ -59,7 +59,7 @@ const useTechnologyDistribution = (endpoint: string, from?: Date, to?: Date, sit
         };
 
         fetchData();
-    }, [endpoint, from?.getTime(), to?.getTime(), siteId, assignedTo]);
+    }, [endpoint, from?.getTime(), to?.getTime(), siteIds?.join(","), assignedTo]);
 
     return { data, loading, error };
 };

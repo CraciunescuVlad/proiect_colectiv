@@ -2,21 +2,21 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAll } from "./helpers";
 
 /**
- * Resolves the alarm IDs linked to a given site through the alarms table.
+ * Resolves the alarm IDs linked to one or more sites through the alarms table.
  *
  * @param supabase The Supabase client
- * @param siteId The site id to filter alarms by
- * @return The alarm IDs found on that site, or an error
+ * @param siteIds The site ids to filter alarms by
+ * @return The alarm IDs found on those sites, or an error
  */
-const getAlarmIdsForSite = async (
+const getAlarmIdsForSites = async (
     supabase: SupabaseClient,
-    siteId: string
+    siteIds: string[]
 ): Promise<{ alarmIds: number[]; error: any }> => {
     const { data, error } = await fetchAll<{ alarm_id: number }>((rangeFrom, rangeTo) =>
         supabase
             .from("alarms")
             .select("alarm_id")
-            .eq("site", siteId)
+            .in("site", siteIds)
             .order("alarm_id", { ascending: true })
             .range(rangeFrom, rangeTo)
     );
@@ -27,18 +27,18 @@ const getAlarmIdsForSite = async (
 };
 
 /**
- * Resolves the incident IDs that have at least one alarm on the given site.
+ * Resolves the incident IDs that have at least one alarm on any of the given sites.
  * Walks the chain alarms.site -> alarm_id -> incident_alarms.incident_id and deduplicates the result.
  *
  * @param supabase The Supabase client
- * @param siteId The site id to filter incidents by
- * @return The unique incident IDs linked to that site, or an error
+ * @param siteIds The site ids to filter incidents by
+ * @return The unique incident IDs linked to those sites, or an error
  */
-const getIncidentIdsForSite = async (
+const getIncidentIdsForSites = async (
     supabase: SupabaseClient,
-    siteId: string
+    siteIds: string[]
 ): Promise<{ incidentIds: number[]; error: any }> => {
-    const { alarmIds, error: alarmErr } = await getAlarmIdsForSite(supabase, siteId);
+    const { alarmIds, error: alarmErr } = await getAlarmIdsForSites(supabase, siteIds);
     if (alarmErr) {
         return { incidentIds: [], error: alarmErr };
     }
@@ -87,19 +87,19 @@ const getIncidentIdsForAssignee = async (
 };
 
 /**
- * Resolves the incident filter for either a site or an assignee.
+ * Resolves the incident filter for either a set of sites or an assignee.
  * Filters are mutually exclusive: assignedTo takes priority when both are provided.
  * Returns null when neither filter is requested, so callers can skip the .in() clause entirely.
  * An empty array means the filter has no matching incidents and the caller should short-circuit.
  *
  * @param supabase The Supabase client
- * @param siteId The site id to filter by, or null
+ * @param siteIds The site ids to filter by, or null
  * @param assignedTo The assignee user id to filter by, or null
  * @return The list of incident IDs to filter by, or null if no filter is needed
  */
 export const resolveIncidentFilter = async (
     supabase: SupabaseClient,
-    siteId: string | null,
+    siteIds: string[] | null,
     assignedTo: string | null
 ): Promise<{ incidentFilter: number[] | null; error: any }> => {
     if (assignedTo !== null) {
@@ -109,8 +109,8 @@ export const resolveIncidentFilter = async (
         }
         return { incidentFilter: incidentIds, error: null };
     }
-    if (siteId !== null) {
-        const { incidentIds, error } = await getIncidentIdsForSite(supabase, siteId);
+    if (siteIds !== null && siteIds.length > 0) {
+        const { incidentIds, error } = await getIncidentIdsForSites(supabase, siteIds);
         if (error) {
             return { incidentFilter: null, error };
         }

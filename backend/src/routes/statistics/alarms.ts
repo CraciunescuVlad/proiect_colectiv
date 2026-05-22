@@ -2,10 +2,8 @@ import { Router, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
     fetchAll,
-    parseSiteId,
+    parseSiteIds,
     parseDateRange,
-    formatDayLabel,
-    forEachDay,
     parseGranularity,
     bucketLabel,
     forEachBucket,
@@ -21,12 +19,13 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
     /**
-     * Returns the number of alarms per day in the requested date range.
-     * When 'siteId' is provided, only alarms on that site are counted.
-     * Days with no alarms are filled with zero so the chart shows a continuous timeline.
+     * Returns the number of alarms per bucket in the requested date range.
+     * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
+     * When 'siteId' is provided (single value or comma-separated list), only alarms on those sites are counted.
+     * Empty buckets are filled with zero so the chart shows a continuous timeline.
      */
     router.get("/alarms/chart", async (req: Request, res: Response) => {
-        const siteId = parseSiteId(req.query.siteId);
+        const siteIds = parseSiteIds(req.query.siteId);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
         const granularity = parseGranularity(req.query.granularity);
 
@@ -38,8 +37,8 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
                 .lte("start_time", endDate.toISOString())
                 .order("alarm_id", { ascending: true })
                 .range(rangeFrom, rangeTo);
-            if (siteId !== null) {
-                q = q.eq("site", siteId);
+            if (siteIds !== null) {
+                q = q.in("site", siteIds);
             }
             return q;
         });
@@ -50,27 +49,29 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
         }
 
         const grouped: Record<string, number> = {};
-    data.forEach((alarm: any) => {
-        const label = bucketLabel(new Date(alarm.start_time), granularity, startDate, endDate);
-        grouped[label] = (grouped[label] || 0) + 1;
-    });
+        data.forEach((alarm: any) => {
+            const label = bucketLabel(new Date(alarm.start_time), granularity, startDate, endDate);
+            grouped[label] = (grouped[label] || 0) + 1;
+        });
 
-    const result: { date: string; value: number }[] = [];
-    forEachBucket(startDate, endDate, granularity, (label) => {
-        result.push({ date: label, value: grouped[label] || 0 });
-    });
+        const result: { date: string; value: number }[] = [];
+        forEachBucket(startDate, endDate, granularity, (label) => {
+            result.push({ date: label, value: grouped[label] || 0 });
+        });
 
         res.json(result);
     });
 
     /**
-     * Returns the number of alarms per day split by severity (Low / Medium / High).
+     * Returns the number of alarms per bucket split by severity (Low / Medium / High).
+     * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
      * Severity is resolved through the alarm_types join on alarms.alarm_type_id -> alarm_types.severity.
-     * When 'siteId' is provided, only alarms on that site are counted.
+     * When 'siteId' is provided (single value or comma-separated list), only alarms on those sites are counted.
      */
     router.get("/alarms/chart-by-severity", async (req: Request, res: Response) => {
-        const siteId = parseSiteId(req.query.siteId);
+        const siteIds = parseSiteIds(req.query.siteId);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
+        const granularity = parseGranularity(req.query.granularity);
 
         const { data, error } = await fetchAll<any>((rangeFrom, rangeTo) => {
             let q = supabase
@@ -80,8 +81,8 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
                 .lte("start_time", endDate.toISOString())
                 .order("alarm_id", { ascending: true })
                 .range(rangeFrom, rangeTo);
-            if (siteId !== null) {
-                q = q.eq("site", siteId);
+            if (siteIds !== null) {
+                q = q.in("site", siteIds);
             }
             return q;
         });
@@ -100,7 +101,7 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
 
         const grouped: Record<string, Record<string, number>> = {};
         data.forEach((alarm: any) => {
-            const label = formatDayLabel(new Date(alarm.start_time));
+            const label = bucketLabel(new Date(alarm.start_time), granularity, startDate, endDate);
             if (!grouped[label]) {
                 grouped[label] = { Low: 0, Medium: 0, High: 0 };
             }
@@ -112,7 +113,7 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
         });
 
         const result: { date: string; Low: number; Medium: number; High: number }[] = [];
-        forEachDay(startDate, endDate, (label) => {
+        forEachBucket(startDate, endDate, granularity, (label) => {
             const day = grouped[label] ?? { Low: 0, Medium: 0, High: 0 };
             result.push({
                 date: label,
@@ -128,10 +129,10 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
     /**
      * Returns the distribution of alarms by technology for the requested date range.
      * Alarms without a technology value are bucketed under "Unknown".
-     * When 'siteId' is provided, only alarms on that site are counted.
+     * When 'siteId' is provided (single value or comma-separated list), only alarms on those sites are counted.
      */
     router.get("/alarms/by-technology", async (req: Request, res: Response) => {
-        const siteId = parseSiteId(req.query.siteId);
+        const siteIds = parseSiteIds(req.query.siteId);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
 
         const { data, error } = await fetchAll<{ tehnologie: string | null }>((rangeFrom, rangeTo) => {
@@ -142,8 +143,8 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
                 .lte("start_time", endDate.toISOString())
                 .order("alarm_id", { ascending: true })
                 .range(rangeFrom, rangeTo);
-            if (siteId !== null) {
-                q = q.eq("site", siteId);
+            if (siteIds !== null) {
+                q = q.in("site", siteIds);
             }
             return q;
         });

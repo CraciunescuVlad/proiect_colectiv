@@ -35,15 +35,15 @@ const Statistics = () => {
     const isAdmin = user?.role === "admin";
 
     const [range, setRange] = useState<DateRange | undefined>(getDefaultRange());
-    const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+    const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>([]);
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
     const { kpis, loading: kpisLoading } = useViewerKpis(selectedProfileId, range?.from, range?.to);
 
-    // Filters are mutually exclusive: selecting one clears the other
-    const handleSiteChange = (siteId: string | null) => {
-        setSelectedSiteId(siteId);
-        if (siteId !== null) {
+    // Filters are mutually exclusive: selecting sites clears the profile, and vice versa
+    const handleSiteChange = (siteIds: string[]) => {
+        setSelectedSiteIds(siteIds);
+        if (siteIds.length > 0) {
             setSelectedProfileId(null);
         }
     };
@@ -51,7 +51,7 @@ const Statistics = () => {
     const handleProfileChange = (profileId: string | null) => {
         setSelectedProfileId(profileId);
         if (profileId !== null) {
-            setSelectedSiteId(null);
+            setSelectedSiteIds([]);
         }
     };
 
@@ -59,7 +59,7 @@ const Statistics = () => {
     let pageTitle = "Statistics";
     if (selectedProfileId !== null) {
         pageTitle = "Viewer Statistics";
-    } else if (selectedSiteId !== null) {
+    } else if (selectedSiteIds.length > 0) {
         pageTitle = "Site Statistics";
     }
 
@@ -70,9 +70,17 @@ const Statistics = () => {
     const assignedCountLabel = kpisLoading ? "..." : `${kpis?.assignedCount ?? 0}`;
     const resolvedCountLabel = kpisLoading ? "..." : `${kpis?.resolvedCount ?? 0}`;
 
+    // Counter label for the selected sites summary
+    let sitesSummary = "";
+    if (selectedSiteIds.length === 1) {
+        sitesSummary = "1 site selected";
+    } else if (selectedSiteIds.length > 1) {
+        sitesSummary = `${selectedSiteIds.length} sites selected`;
+    }
+
     return (
         <div className="flex flex-col h-screen bg-[#060010] px-24 py-6 overflow-y-auto">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-2">
                 <h1 className="text-white text-2xl font-semibold">{pageTitle}</h1>
                 <div className="flex items-center gap-4">
                     {isAdmin && (
@@ -82,12 +90,21 @@ const Statistics = () => {
                         />
                     )}
                     <SiteSelector
-                        selectedSiteId={selectedSiteId}
+                        selectedSiteIds={selectedSiteIds}
                         onChange={handleSiteChange}
                     />
                     <DateRangePicker range={range} onChange={setRange} />
                 </div>
             </div>
+
+            {selectedSiteIds.length > 0 && (
+                <div className="flex flex-col items-end gap-1 mb-6">
+                    <p className="text-white/60 text-xs">{sitesSummary}</p>
+                    <p className="text-white/40 text-xs">{selectedSiteIds.join(", ")}</p>
+                </div>
+            )}
+
+            {selectedSiteIds.length === 0 && <div className="mb-6" />}
 
             {viewerMode && (
                 <div className="flex w-full mb-8 border border-white/10 rounded-2xl">
@@ -120,7 +137,7 @@ const Statistics = () => {
                     series={[{ dataKey: "value", color: "#c70606" }]}
                     from={range?.from}
                     to={range?.to}
-                    siteId={selectedSiteId}
+                    siteIds={selectedSiteIds}
                     assignedTo={selectedProfileId}
                 />
 
@@ -137,7 +154,7 @@ const Statistics = () => {
                     ]}
                     from={range?.from}
                     to={range?.to}
-                    siteId={selectedSiteId}
+                    siteIds={selectedSiteIds}
                     assignedTo={selectedProfileId}
                 />
 
@@ -148,7 +165,7 @@ const Statistics = () => {
                     series={[{ dataKey: "value", color: "#c70606" }]}
                     from={range?.from}
                     to={range?.to}
-                    siteId={selectedSiteId}
+                    siteIds={selectedSiteIds}
                     assignedTo={selectedProfileId}
                 />
 
@@ -160,7 +177,7 @@ const Statistics = () => {
                         series={[{ dataKey: "value", color: "#a263f4" }]}
                         from={range?.from}
                         to={range?.to}
-                        siteId={selectedSiteId}
+                        siteIds={selectedSiteIds}
                     />
                 )}
 
@@ -176,7 +193,7 @@ const Statistics = () => {
                         ]}
                         from={range?.from}
                         to={range?.to}
-                        siteId={selectedSiteId}
+                        siteIds={selectedSiteIds}
                     />
                 )}
 
@@ -186,7 +203,7 @@ const Statistics = () => {
                         title="Incidents by technology"
                         from={range?.from}
                         to={range?.to}
-                        siteId={selectedSiteId}
+                        siteIds={selectedSiteIds}
                         assignedTo={selectedProfileId}
                     />
                 )}
@@ -199,7 +216,7 @@ const Statistics = () => {
                                 title="Alarms by technology"
                                 from={range?.from}
                                 to={range?.to}
-                                siteId={selectedSiteId}
+                                siteIds={selectedSiteIds}
                             />
                         </div>
                         <div className="flex-1">
@@ -208,7 +225,7 @@ const Statistics = () => {
                                 title="Incidents by technology"
                                 from={range?.from}
                                 to={range?.to}
-                                siteId={selectedSiteId}
+                                siteIds={selectedSiteIds}
                             />
                         </div>
                     </div>

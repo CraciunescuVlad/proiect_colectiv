@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
     fetchAll,
-    parseSiteId,
+    parseSiteIds,
     parseAssignedTo,
     parseDateRange,
     parseGranularity,
@@ -23,17 +23,18 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
     /**
      * Returns the number of incidents per bucket in the requested date range.
      * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
-     * When 'siteId' is provided, only incidents linked to that site (via incident_alarms -> alarms.site) are counted.
+     * When 'siteId' is provided (single value or comma-separated list), only incidents linked
+     * to those sites (via incident_alarms -> alarms.site) are counted.
      * When 'assignedTo' is provided, only incidents assigned to that user are counted.
      * Empty buckets are filled with zero so the chart shows a continuous timeline.
      */
     router.get("/incidents/chart", async (req: Request, res: Response) => {
-        const siteId = parseSiteId(req.query.siteId);
+        const siteIds = parseSiteIds(req.query.siteId);
         const assignedTo = parseAssignedTo(req.query.assignedTo);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
         const granularity = parseGranularity(req.query.granularity);
 
-        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
+        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteIds, assignedTo);
         if (filterErr) {
             res.status(500).json({ message: filterErr.message ?? "No data" });
             return;
@@ -82,16 +83,17 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
     /**
      * Returns the number of incidents per bucket split by priority (Warning / Minor / Major / Critical).
      * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
-     * When 'siteId' is provided, only incidents linked to that site are counted.
+     * When 'siteId' is provided (single value or comma-separated list), only incidents linked
+     * to those sites are counted.
      * When 'assignedTo' is provided, only incidents assigned to that user are counted.
      */
     router.get("/incidents/chart-by-priority", async (req: Request, res: Response) => {
-        const siteId = parseSiteId(req.query.siteId);
+        const siteIds = parseSiteIds(req.query.siteId);
         const assignedTo = parseAssignedTo(req.query.assignedTo);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
         const granularity = parseGranularity(req.query.granularity);
 
-        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
+        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteIds, assignedTo);
         if (filterErr) {
             res.status(500).json({ message: filterErr.message ?? "No data" });
             return;
@@ -155,16 +157,17 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
      * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
      * For week and month buckets, the average is computed across all incidents that fell in that bucket.
      * Incidents with a negative duration (data inconsistency) are skipped.
-     * When 'siteId' is provided, only incidents linked to that site are counted.
+     * When 'siteId' is provided (single value or comma-separated list), only incidents linked
+     * to those sites are counted.
      * When 'assignedTo' is provided, only incidents assigned to that user are counted.
      */
     router.get("/incidents/avg-resolution/chart", async (req: Request, res: Response) => {
-        const siteId = parseSiteId(req.query.siteId);
+        const siteIds = parseSiteIds(req.query.siteId);
         const assignedTo = parseAssignedTo(req.query.assignedTo);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
         const granularity = parseGranularity(req.query.granularity);
 
-        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
+        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteIds, assignedTo);
         if (filterErr) {
             res.status(500).json({ message: filterErr.message ?? "No data" });
             return;
@@ -231,15 +234,16 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
     /**
      * Returns the distribution of incidents by technology, derived from their linked alarms.
      * An incident with alarms on multiple technologies is counted once per distinct technology.
-     * When 'siteId' is provided, only incidents linked to that site are counted.
+     * When 'siteId' is provided (single value or comma-separated list), only incidents linked
+     * to those sites are counted.
      * When 'assignedTo' is provided, only incidents assigned to that user are counted.
      */
     router.get("/incidents/by-technology", async (req: Request, res: Response) => {
-        const siteId = parseSiteId(req.query.siteId);
+        const siteIds = parseSiteIds(req.query.siteId);
         const assignedTo = parseAssignedTo(req.query.assignedTo);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
 
-        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
+        const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteIds, assignedTo);
         if (filterErr) {
             res.status(500).json({ message: filterErr.message ?? "No data" });
             return;

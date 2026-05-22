@@ -22,7 +22,7 @@ type Props = {
     capitalizeLegend?: boolean;
     from?: Date;
     to?: Date;
-    siteId?: string | null;
+    siteIds?: string[];
     assignedTo?: string | null;
 };
 
@@ -72,11 +72,11 @@ const LineChartCard = ({
     capitalizeLegend = false,
     from,
     to,
-    siteId,
+    siteIds,
     assignedTo,
 }: Props) => {
     const [granularity, setGranularity] = useState<Granularity>("day");
-    const { data, loading, error } = useChartData(endpoint, from, to, siteId, assignedTo, granularity);
+    const { data, loading, error } = useChartData(endpoint, from, to, siteIds, assignedTo, granularity);
     const multi = series.length > 1;
 
     const granularityOptions: { value: Granularity; label: string }[] = [
