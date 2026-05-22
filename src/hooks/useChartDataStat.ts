@@ -8,7 +8,7 @@ type ChartPoint = {
 // Generic chart data hook used by LineChartCard
 // Builds a URL with optional date range, site filter, and assignee filter
 // Cancels stale responses when params change rapidly to avoid race conditions
-const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string | null, assignedTo?: string | null, granularity: "day" | "week" | "month" = "day") => {
+const useChartData = (endpoint: string, from?: Date, to?: Date, siteIds?: string[], assignedTo?: string | null, granularity: "day" | "week" | "month" = "day") => {
     const [data, setData] = useState<ChartPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -34,8 +34,8 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string 
                     params.append("from", formatDate(from));
                     params.append("to", formatDate(to));
                 }
-                if (siteId !== null && siteId !== undefined && siteId !== "") {
-                    params.append("siteId", siteId);
+                if (siteIds && siteIds.length > 0) {
+                    params.append("siteId", siteIds.join(","));
                 }
                 if (assignedTo !== null && assignedTo !== undefined && assignedTo !== "") {
                     params.append("assignedTo", assignedTo);
@@ -80,7 +80,7 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteId?: string 
         return () => {
             cancelled = true;
         };
-    }, [endpoint, from?.getTime(), to?.getTime(), siteId, assignedTo, granularity]);
+    }, [endpoint, from?.getTime(), to?.getTime(), siteIds?.join(","), assignedTo, granularity]);
 
     return { data, loading, error };
 };

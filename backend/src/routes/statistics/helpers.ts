@@ -34,18 +34,26 @@ export const fetchAll = async <T>(
 };
 
 /**
- * Parses the optional 'siteId' query param into a trimmed string, or null if missing or blank.
+ * Parses the optional 'siteId' query param into a list of trimmed strings.
+ * Accepts a single value (e.g. "A123") or a comma-separated list (e.g. "A123,B456").
+ * Returns null when missing or blank so callers can skip site filtering entirely.
  *
  * @param raw The raw query param value
- * @return The trimmed site id, or null if not provided
+ * @return The list of site ids, or null if not provided
  */
-export const parseSiteId = (raw: any): string | null => {
+export const parseSiteIds = (raw: any): string[] | null => {
     if (typeof raw !== "string" || raw.trim() === "") {
         return null;
     }
-    return raw.trim();
+    const ids = raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s !== "");
+    if (ids.length === 0) {
+        return null;
+    }
+    return ids;
 };
-
 /**
  * Parses the optional 'assignedTo' query param into a trimmed string, or null if missing or blank.
  *
