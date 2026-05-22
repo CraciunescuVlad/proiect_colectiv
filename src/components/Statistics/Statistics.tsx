@@ -8,6 +8,7 @@ import ProfileSelector from "./ProfileSelector";
 import StatCard from "../Home/StatCard";
 import useAuth from "../../hooks/useAuth";
 import useViewerKpis from "../../hooks/useViewerKpis";
+import useOverviewKpis from "../../hooks/useOverviewKpis";
 
 
 const getDefaultRange = (): DateRange => {
@@ -30,6 +31,14 @@ const formatMinutes = (minutes: number): string => {
     return `${hours}h ${mins}m`;
 };
 
+// Formats a period-over-period percentage with an explicit sign
+const formatChange = (percent: number): string => {
+    if (percent > 0) {
+        return `+${percent}%`;
+    }
+    return `${percent}%`;
+};
+
 const Statistics = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === "admin";
@@ -39,6 +48,11 @@ const Statistics = () => {
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
     const { kpis, loading: kpisLoading } = useViewerKpis(selectedProfileId, range?.from, range?.to);
+    const { kpis: overviewKpis, loading: overviewLoading } = useOverviewKpis(
+        range?.from,
+        range?.to,
+        selectedSiteIds
+    );
 
     // Filters are mutually exclusive: selecting sites clears the profile, and vice versa
     const handleSiteChange = (siteIds: string[]) => {
@@ -105,6 +119,35 @@ const Statistics = () => {
             )}
 
             {selectedSiteIds.length === 0 && <div className="mb-6" />}
+
+            {!viewerMode && (
+                <div className="flex w-full mb-8 border border-white/10 rounded-2xl">
+                    <StatCard
+                        label="Total Alarms"
+                        value={overviewLoading ? "..." : `${overviewKpis?.alarmsTotal.value ?? 0}`}
+                        change={overviewLoading ? "" : formatChange(overviewKpis?.alarmsTotal.changePercent ?? 0)}
+                        up={(overviewKpis?.alarmsTotal.changePercent ?? 0) >= 0}
+                    />
+                    <StatCard
+                        label="Resolved Alarms"
+                        value={overviewLoading ? "..." : `${overviewKpis?.alarmsResolved.value ?? 0}`}
+                        change={overviewLoading ? "" : formatChange(overviewKpis?.alarmsResolved.changePercent ?? 0)}
+                        up={(overviewKpis?.alarmsResolved.changePercent ?? 0) >= 0}
+                    />
+                    <StatCard
+                        label="Total Incidents"
+                        value={overviewLoading ? "..." : `${overviewKpis?.incidentsTotal.value ?? 0}`}
+                        change={overviewLoading ? "" : formatChange(overviewKpis?.incidentsTotal.changePercent ?? 0)}
+                        up={(overviewKpis?.incidentsTotal.changePercent ?? 0) >= 0}
+                    />
+                    <StatCard
+                        label="Resolved Incidents"
+                        value={overviewLoading ? "..." : `${overviewKpis?.incidentsResolved.value ?? 0}`}
+                        change={overviewLoading ? "" : formatChange(overviewKpis?.incidentsResolved.changePercent ?? 0)}
+                        up={(overviewKpis?.incidentsResolved.changePercent ?? 0) >= 0}
+                    />
+                </div>
+            )}
 
             {viewerMode && (
                 <div className="flex w-full mb-8 border border-white/10 rounded-2xl">
