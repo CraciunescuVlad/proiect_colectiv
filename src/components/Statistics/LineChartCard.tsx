@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
     LineChart, Line, XAxis, YAxis,
     CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -10,6 +11,8 @@ export type LineSeries = {
     label?: string;
 };
 
+type Granularity = "day" | "week" | "month";
+
 type Props = {
     endpoint: string;
     title: string;
@@ -21,7 +24,6 @@ type Props = {
     to?: Date;
     siteId?: string | null;
     assignedTo?: string | null;
-
 };
 
 // Tooltip behavior depends on how many series are rendered
@@ -60,6 +62,7 @@ const CustomTooltip = ({ active, payload, label, unit, multi, capitalizeLegend }
 };
 
 // Reusable line chart card; renders one or more lines based on the series prop
+// Has a built-in granularity toggle (day / week / month) that controls the x-axis bucketing
 const LineChartCard = ({
     endpoint,
     title,
@@ -71,15 +74,41 @@ const LineChartCard = ({
     to,
     siteId,
     assignedTo,
-    
 }: Props) => {
-    const { data, loading, error } = useChartData(endpoint, from, to, siteId, assignedTo);
+    const [granularity, setGranularity] = useState<Granularity>("day");
+    const { data, loading, error } = useChartData(endpoint, from, to, siteId, assignedTo, granularity);
     const multi = series.length > 1;
+
+    const granularityOptions: { value: Granularity; label: string }[] = [
+        { value: "day", label: "Day" },
+        { value: "week", label: "Week" },
+        { value: "month", label: "Month" },
+    ];
 
     return (
         <div className="border border-white/10 rounded-2xl p-6 w-full">
             <div className="flex items-center justify-between mb-6">
                 <p className="text-white/60 text-sm">{title}</p>
+                <div className="flex bg-white/5 border border-white/10 rounded-lg p-1 gap-1">
+                    {granularityOptions.map((opt) => {
+                        const isActive = granularity === opt.value;
+                        let buttonClass = "px-3 py-1 text-xs rounded-md transition-colors ";
+                        if (isActive) {
+                            buttonClass += "bg-white/15 text-white";
+                        } else {
+                            buttonClass += "text-white/50 hover:text-white";
+                        }
+                        return (
+                            <button
+                                key={opt.value}
+                                onClick={() => setGranularity(opt.value)}
+                                className={buttonClass}
+                            >
+                                {opt.label}
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {loading && (

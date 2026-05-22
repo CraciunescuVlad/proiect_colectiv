@@ -5,8 +5,9 @@ import {
     parseSiteId,
     parseAssignedTo,
     parseDateRange,
-    formatDayLabel,
-    forEachDay,
+    parseGranularity,
+    bucketLabel,
+    forEachBucket,
 } from "./helpers";
 import { resolveIncidentFilter } from "./filters";
 
@@ -20,15 +21,17 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
     /**
-     * Returns the number of incidents per day in the requested date range.
+     * Returns the number of incidents per bucket in the requested date range.
+     * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
      * When 'siteId' is provided, only incidents linked to that site (via incident_alarms -> alarms.site) are counted.
      * When 'assignedTo' is provided, only incidents assigned to that user are counted.
-     * Days with no incidents are filled with zero so the chart shows a continuous timeline.
+     * Empty buckets are filled with zero so the chart shows a continuous timeline.
      */
     router.get("/incidents/chart", async (req: Request, res: Response) => {
         const siteId = parseSiteId(req.query.siteId);
         const assignedTo = parseAssignedTo(req.query.assignedTo);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
+        const granularity = parseGranularity(req.query.granularity);
 
         const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
         if (filterErr) {
@@ -38,7 +41,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
 
         if (incidentFilter !== null && incidentFilter.length === 0) {
             const empty: { date: string; value: number }[] = [];
-            forEachDay(startDate, endDate, (label) => {
+            forEachBucket(startDate, endDate, granularity, (label) => {
                 empty.push({ date: label, value: 0 });
             });
             res.json(empty);
@@ -64,12 +67,12 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
 
         const grouped: Record<string, number> = {};
         data.forEach((incident: any) => {
-            const label = formatDayLabel(new Date(incident.start_time));
+            const label = bucketLabel(new Date(incident.start_time), granularity, startDate, endDate);
             grouped[label] = (grouped[label] || 0) + 1;
         });
 
         const result: { date: string; value: number }[] = [];
-        forEachDay(startDate, endDate, (label) => {
+        forEachBucket(startDate, endDate, granularity, (label) => {
             result.push({ date: label, value: grouped[label] || 0 });
         });
 
@@ -77,7 +80,8 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
     });
 
     /**
-     * Returns the number of incidents per day split by priority (Warning / Minor / Major / Critical).
+     * Returns the number of incidents per bucket split by priority (Warning / Minor / Major / Critical).
+     * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
      * When 'siteId' is provided, only incidents linked to that site are counted.
      * When 'assignedTo' is provided, only incidents assigned to that user are counted.
      */
@@ -85,6 +89,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
         const siteId = parseSiteId(req.query.siteId);
         const assignedTo = parseAssignedTo(req.query.assignedTo);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
+        const granularity = parseGranularity(req.query.granularity);
 
         const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
         if (filterErr) {
@@ -94,7 +99,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
 
         if (incidentFilter !== null && incidentFilter.length === 0) {
             const empty: { date: string; Warning: number; Minor: number; Major: number; Critical: number }[] = [];
-            forEachDay(startDate, endDate, (label) => {
+            forEachBucket(startDate, endDate, granularity, (label) => {
                 empty.push({ date: label, Warning: 0, Minor: 0, Major: 0, Critical: 0 });
             });
             res.json(empty);
@@ -120,7 +125,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
 
         const grouped: Record<string, Record<string, number>> = {};
         data.forEach((incident: any) => {
-            const label = formatDayLabel(new Date(incident.start_time));
+            const label = bucketLabel(new Date(incident.start_time), granularity, startDate, endDate);
             if (!grouped[label]) {
                 grouped[label] = { Warning: 0, Minor: 0, Major: 0, Critical: 0 };
             }
@@ -131,7 +136,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
         });
 
         const result: { date: string; Warning: number; Minor: number; Major: number; Critical: number }[] = [];
-        forEachDay(startDate, endDate, (label) => {
+        forEachBucket(startDate, endDate, granularity, (label) => {
             const day = grouped[label] ?? { Warning: 0, Minor: 0, Major: 0, Critical: 0 };
             result.push({
                 date: label,
@@ -146,7 +151,9 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
     });
 
     /**
-     * Returns the average resolution time per day (in minutes), grouped by the incident's end_time.
+     * Returns the average resolution time per bucket (in minutes), grouped by the incident's end_time.
+     * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
+     * For week and month buckets, the average is computed across all incidents that fell in that bucket.
      * Incidents with a negative duration (data inconsistency) are skipped.
      * When 'siteId' is provided, only incidents linked to that site are counted.
      * When 'assignedTo' is provided, only incidents assigned to that user are counted.
@@ -155,6 +162,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
         const siteId = parseSiteId(req.query.siteId);
         const assignedTo = parseAssignedTo(req.query.assignedTo);
         const { startDate, endDate } = parseDateRange(req.query.from, req.query.to);
+        const granularity = parseGranularity(req.query.granularity);
 
         const { incidentFilter, error: filterErr } = await resolveIncidentFilter(supabase, siteId, assignedTo);
         if (filterErr) {
@@ -164,7 +172,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
 
         if (incidentFilter !== null && incidentFilter.length === 0) {
             const empty: { date: string; value: number }[] = [];
-            forEachDay(startDate, endDate, (label) => {
+            forEachBucket(startDate, endDate, granularity, (label) => {
                 empty.push({ date: label, value: 0 });
             });
             res.json(empty);
@@ -199,7 +207,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
                 return;
             }
 
-            const label = formatDayLabel(new Date(incident.end_time));
+            const label = bucketLabel(new Date(incident.end_time), granularity, startDate, endDate);
             if (!grouped[label]) {
                 grouped[label] = { totalMinutes: 0, count: 0 };
             }
@@ -208,7 +216,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
         });
 
         const result: { date: string; value: number }[] = [];
-        forEachDay(startDate, endDate, (label) => {
+        forEachBucket(startDate, endDate, granularity, (label) => {
             const day = grouped[label];
             let avg = 0;
             if (day && day.count > 0) {
@@ -253,7 +261,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
         }
 
         const { data: incidents, error: incError } = await fetchAll<{ incident_id: number }>((rangeFrom, rangeTo) =>
-            incQuery.order("incident_id", { ascending: true })   
+            incQuery.order("incident_id", { ascending: true })
                     .range(rangeFrom, rangeTo)
         );
 
