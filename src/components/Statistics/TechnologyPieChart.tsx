@@ -6,7 +6,7 @@ type Props = {
     title: string;
     from?: Date;
     to?: Date;
-    siteId?: string | null;
+    siteIds?: string[];
     assignedTo?: string | null;
 
 };
@@ -30,8 +30,8 @@ const CustomTooltip = ({ active, payload, total }: any) => {
 };
 
 // Pie chart showing distribution of a metric by technology
-const TechnologyPieChart = ({ endpoint, title, from, to, siteId, assignedTo }: Props) => {
-    const { data, loading, error } = useTechnologyDistribution(endpoint, from, to, siteId, assignedTo);
+const TechnologyPieChart = ({ endpoint, title, from, to, siteIds, assignedTo }: Props) => {
+    const { data, loading, error } = useTechnologyDistribution(endpoint, from, to, siteIds, assignedTo);
     const total = data.reduce((sum, item) => sum + item.value, 0);
     return (
         <div className="border border-white/10 rounded-2xl p-6 w-full">
