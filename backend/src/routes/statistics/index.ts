@@ -4,6 +4,7 @@ import createSitesRouter from "./sites";
 import createProfilesRouter from "./profiles";
 import createIncidentsRouter from "./incidents";
 import createAlarmsRouter from "./alarms";
+import createKpisRouter from "./kpis";
 
 /**
  * Builds the Express router exposing all statistics endpoints.
@@ -26,6 +27,7 @@ const createStatisticsRouter = (supabase: SupabaseClient) => {
     router.use(createProfilesRouter(supabase));
     router.use(createIncidentsRouter(supabase));
     router.use(createAlarmsRouter(supabase));
+    router.use(createKpisRouter(supabase));
 
     return router;
 };

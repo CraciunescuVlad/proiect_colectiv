@@ -34,6 +34,23 @@ export const fetchAll = async <T>(
 };
 
 /**
+ * Given a date range, returns the immediately-preceding range of equal length.
+ * Used to compute period-over-period KPI deltas.
+ *
+ * @param startDate The start of the current range
+ * @param endDate The end of the current range
+ * @return The start and end of the previous range of the same duration
+ */
+export const getPreviousRange = (
+    startDate: Date,
+    endDate: Date
+): { prevStart: Date; prevEnd: Date } => {
+    const durationMs = endDate.getTime() - startDate.getTime();
+    const prevEnd = new Date(startDate.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - durationMs);
+    return { prevStart, prevEnd };
+};
+/**
  * Parses the optional 'siteId' query param into a list of trimmed strings.
  * Accepts a single value (e.g. "A123") or a comma-separated list (e.g. "A123,B456").
  * Returns null when missing or blank so callers can skip site filtering entirely.
