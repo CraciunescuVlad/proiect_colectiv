@@ -320,7 +320,7 @@ const IncidentPage = () => {
                                     </button>
                                 </div>
                                 {messageError && (
-                                    <p className="text-red-400 text-xs mt-2">{messageError}</p>
+                                    <p className="text-red-400 text-xs mt-2">We're sorry! Something went wrong.</p>
                                 )}
                             </>
                         )}
