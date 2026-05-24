@@ -33,6 +33,103 @@ const emailTransporter = nodemailer.createTransport({
 const sendEmail = (to: string, subject: string, text: string) =>
   emailTransporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
 
+const sendHtmlEmail = (to: string, subject: string, html: string) =>
+  emailTransporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, html });
+
+const staticMapUrl = (lat: number, lng: number) =>
+  `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-l+ef4444(${lng},${lat})/${lng},${lat},14,0/600x300@2x?access_token=${process.env.MAPBOX_TOKEN}`;
+
+async function getIncidentEmailData(incidentId: string) {
+    const { data: incident } = await supabase
+        .from("incidents")
+        .select("incident_id, status, start_time, end_time, priority, assigned_to")
+        .eq("incident_id", incidentId)
+        .single();
+
+    const { data: incidentAlarms } = await supabase
+        .from("incident_alarms")
+        .select("alarm_id")
+        .eq("incident_id", incidentId);
+
+    const alarmIds = incidentAlarms?.map((ia: any) => ia.alarm_id) ?? [];
+
+    const { data: alarms } = await supabase
+        .from("alarms")
+        .select("alarm_id, site, tehnologie, type, status")
+        .in("alarm_id", alarmIds.length ? alarmIds : [0]);
+
+    const firstSite = alarms?.[0]?.site ?? null;
+    let site = null;
+    if (firstSite) {
+        const { data: siteData } = await supabase
+            .from("site")
+            .select("latitudine, longitude, city, address")
+            .eq("id", firstSite)
+            .single();
+        site = siteData;
+    }
+
+    return { incident, alarms: alarms ?? [], site, firstSite };
+}
+
+function buildAssignmentEmail(incidentId: string, incident: any, alarms: any[], site: any): string {
+    const mapImg = site
+        ? `<img src="${staticMapUrl(site.latitudine, site.longitude)}" width="600" style="border-radius:8px;display:block;margin:16px 0;" alt="Incident location"/>`
+        : "";
+    const alarmRows = alarms.map(a =>
+        `<tr><td style="padding:6px 10px;color:#94a3b8;">${a.tehnologie} · ${a.type}</td><td style="padding:6px 10px;color:#94a3b8;">${a.site}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
+    ).join("");
+
+    return `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#fff;margin-bottom:4px;">You've been assigned to an incident</h2>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${incidentId}</strong></p>
+
+  <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${incident?.priority ?? "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${incident?.status === 1 ? "#f87171" : "#4ade80"};">${incident?.status === 1 ? "Active" : "Resolved"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${site.city ?? ""} — ${site.address ?? ""}` : "—"}</td></tr>
+  </table>
+
+  ${mapImg}
+
+  ${alarms.length ? `
+  <h3 style="color:#fff;margin-bottom:8px;">Related Alarms (${alarms.length})</h3>
+  <table style="width:100%;border-collapse:collapse;background:#1a1030;border-radius:8px;overflow:hidden;">
+    <thead><tr style="background:#2d1f4e;">
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">Technology</th>
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">Site</th>
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">Status</th>
+    </tr></thead>
+    <tbody>${alarmRows}</tbody>
+  </table>` : ""}
+
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · This is an automated notification</p>
+</div>`;
+}
+
+function buildNewMessageEmail(incidentId: string, site: any, messageText: string, senderEmail: string): string {
+    const mapImg = site
+        ? `<img src="${staticMapUrl(site.latitudine, site.longitude)}" width="600" style="border-radius:8px;display:block;margin:16px 0;" alt="Incident location"/>`
+        : "";
+    return `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#fff;margin-bottom:4px;">New message on your incident</h2>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${incidentId}</strong></p>
+
+  <div style="background:#1a1030;border-left:3px solid #a78bfa;padding:14px 18px;border-radius:6px;margin:20px 0;">
+    <p style="color:#94a3b8;font-size:12px;margin:0 0 6px;">From: ${senderEmail}</p>
+    <p style="color:#e2e8f0;margin:0;">${messageText}</p>
+  </div>
+
+  ${site ? `<p style="color:#6b7280;font-size:13px;">Location: ${site.city ?? ""} ${site.address ?? ""}</p>` : ""}
+  ${mapImg}
+
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · This is an automated notification</p>
+</div>`;
+}
+
 type SignupEntry = { userId: string; otp: string; expiry: number };
 const signupStore = new Map<string, SignupEntry>();
 
@@ -254,6 +351,23 @@ app.patch("/incidents/:id/assign", requireAuth, requireAdmin, async (req: Reques
     }
 
     res.json(data);
+
+    // fire-and-forget: send assignment notification email
+    if (assigned_to) {
+        (async () => {
+            try {
+                const { data: userAuth } = await supabase.auth.admin.getUserById(assigned_to);
+                const userEmail = userAuth?.user?.email;
+                if (!userEmail) return;
+
+                const { incident, alarms, site } = await getIncidentEmailData(id as string);
+                const html = buildAssignmentEmail(id as string, incident, alarms, site);
+                await sendHtmlEmail(userEmail, `[AlarmUP] You've been assigned to INC${id}`, html);
+            } catch (err) {
+                console.error("Failed to send assignment email:", err);
+            }
+        })();
+    }
 });
 
 app.get("/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
@@ -291,9 +405,10 @@ app.get("/users/:id", requireAuth, async (req: Request, res: Response) => {
     });
 });
 
+
 app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { messages } = req.body;
+    const { message } = req.body;
     const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
@@ -319,9 +434,20 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
         return;
     }
 
+    const now = new Date().toISOString();
+
+    const { error: insertError } = await supabase
+        .from("messages")
+        .insert({ id_incident: parseInt(id as string), id_user: userData.user.id, time: now, message });
+
+    if (insertError) {
+        res.status(500).json({ message: insertError.message });
+        return;
+    }
+
     const { data, error } = await supabase
         .from("incidents")
-        .update({ messages })
+        .update({ messages: message })
         .eq("incident_id", id)
         .select()
         .single();
@@ -332,6 +458,43 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
     }
 
     res.json(data);
+
+    // fire-and-forget: notify assigned user about new message
+    (async () => {
+        try {
+            const assignedTo = data?.assigned_to;
+            if (!assignedTo || assignedTo === userData.user.id) return;
+
+            const { data: assigneeAuth } = await supabase.auth.admin.getUserById(assignedTo);
+            const assigneeEmail = assigneeAuth?.user?.email;
+            if (!assigneeEmail) return;
+
+            const { site } = await getIncidentEmailData(id as string);
+            const senderEmail = userData.user.email ?? "an admin";
+            const html = buildNewMessageEmail(id as string, site, message, senderEmail);
+            await sendHtmlEmail(assigneeEmail, `[AlarmUP] New message on INC${id}`, html);
+        } catch (err) {
+            console.error("Failed to send message notification email:", err);
+        }
+    })();
+});
+
+app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+        .from("messages")
+        .select("id_messaje, id_user, time, message")
+        .eq("id_incident", parseInt(id as string))
+        .order("time", { ascending: false })
+        .limit(3);
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data ?? []);
 });
 
 app.get("/incidents/:id", async (req: Request, res: Response) => {

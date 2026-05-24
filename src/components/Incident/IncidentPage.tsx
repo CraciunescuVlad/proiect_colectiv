@@ -24,6 +24,13 @@ interface IncidentDetail {
     }[];
 }
 
+interface Message {
+    id_messaje: number;
+    id_user: string;
+    time: string;
+    message: string;
+}
+
 const priorityColors: Record<string, { text: string; bg: string; border: string }> = {
     Critical: { text: "text-red-400",    bg: "bg-red-500/10",    border: "border-red-500/20" },
     Major:    { text: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
@@ -57,7 +64,7 @@ const AssignedEmail = ({ userId }: { userId: string }) => {
         fetch_user();
     }, [userId]);
 
-    return <span>{email ?? userId}</span>;
+    return <span>{email ?? "..."}</span>;
 };
 
 const IncidentMap = ({ siteId }: { siteId: string }) => {
@@ -117,20 +124,27 @@ const IncidentPage = () => {
     const [incident, setIncident] = useState<IncidentDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [assigning, setAssigning] = useState(false);
-    const [message, setMessage] = useState("");
-    const [editingMessage, setEditingMessage] = useState(false);
-    const [savingMessage, setSavingMessage] = useState(false);
+    const [recentMessages, setRecentMessages] = useState<Message[]>([]);
+    const [newMessage, setNewMessage] = useState("");
+    const [sendingMessage, setSendingMessage] = useState(false);
+    const [messageError, setMessageError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchIncident = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch(`http://localhost:3000/incidents/${id}`, {
-                    headers: { "Authorization": `Bearer ${token}` },
-                });
-                const data = await res.json();
+                const [incidentRes, messagesRes] = await Promise.all([
+                    fetch(`http://localhost:3000/incidents/${id}`, {
+                        headers: { "Authorization": `Bearer ${token}` },
+                    }),
+                    fetch(`http://localhost:3000/incidents/${id}/messages`, {
+                        headers: { "Authorization": `Bearer ${token}` },
+                    }),
+                ]);
+                const data = await incidentRes.json();
+                const msgs = await messagesRes.json();
                 setIncident(data);
-                setMessage(data.messages ?? "");
+                setRecentMessages(Array.isArray(msgs) ? [...msgs].reverse() : []);
             } catch (err) {
                 console.error("Failed to fetch incident", err);
             } finally {
@@ -161,23 +175,35 @@ const IncidentPage = () => {
         }
     };
 
-    const handleSaveMessage = async () => {
-        setSavingMessage(true);
+    const handleSendMessage = async () => {
+        if (!newMessage.trim()) return;
+        setSendingMessage(true);
+        setMessageError(null);
         try {
-            await fetch(`http://localhost:3000/incidents/${id}/message`, {
+            const res = await fetch(`http://localhost:3000/incidents/${id}/message`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${localStorage.getItem("token")}`,
                 },
-                body: JSON.stringify({ messages: message }),
+                body: JSON.stringify({ message: newMessage.trim() }),
             });
-            setIncident(prev => prev ? { ...prev, messages: message } : prev);
-            setEditingMessage(false);
+            const data = await res.json();
+            if (!res.ok) {
+                setMessageError(data.message ?? `Error ${res.status}`);
+                return;
+            }
+            setIncident(prev => prev ? { ...prev, messages: data.messages } : prev);
+            setRecentMessages(prev => [
+                ...prev.slice(-2),
+                { id_messaje: Date.now(), id_user: user?.id ?? "", time: new Date().toISOString(), message: newMessage.trim() },
+            ]);
+            setNewMessage("");
         } catch (err) {
-            console.error("Failed to save message", err);
+            setMessageError("Network error — check backend is running");
+            console.error("Failed to send message", err);
         } finally {
-            setSavingMessage(false);
+            setSendingMessage(false);
         }
     };
 
@@ -258,45 +284,45 @@ const IncidentPage = () => {
                         </div>
                     </div>
 
-                    {/* Message card */}
+                    {/* Messages card */}
                     <div className="border border-white/10 rounded-2xl p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-white font-medium text-sm">Message</h2>
-                            {user?.role === "admin" && !editingMessage && (
-                                <button
-                                    onClick={() => setEditingMessage(true)}
-                                    className="text-white/40 hover:text-white text-xs transition-colors"
-                                >
-                                    Edit
-                                </button>
+                        <h2 className="text-white font-medium text-sm mb-4">Messages</h2>
+                        <div className="flex flex-col gap-3 mb-4">
+                            {recentMessages.length === 0 ? (
+                                <p className="text-white/30 text-sm">No messages yet.</p>
+                            ) : (
+                                recentMessages.map((msg) => (
+                                    <div key={msg.id_messaje} className="bg-white/5 border border-white/10 rounded-lg px-4 py-3">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-white/60 text-xs font-medium"><AssignedEmail userId={msg.id_user} /></span>
+                                            <span className="text-white/30 text-xs">{new Date(msg.time).toLocaleString()}</span>
+                                        </div>
+                                        <p className="text-white/70 text-sm">{msg.message}</p>
+                                    </div>
+                                ))
                             )}
                         </div>
-                        {editingMessage ? (
-                            <div className="flex flex-col gap-3">
-                                <textarea
-                                    value={message}
-                                    onChange={(e) => setMessage(e.target.value)}
-                                    className="bg-white/5 text-white text-sm border border-white/20 rounded-lg px-4 py-3 outline-none focus:border-white/50 resize-none h-32"
-                                    autoFocus
-                                />
+                        {user?.role === "admin" && (
+                            <>
                                 <div className="flex gap-2">
+                                    <textarea
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        placeholder="Add a message..."
+                                        className="flex-1 bg-white/5 text-white text-sm border border-white/20 rounded-lg px-4 py-3 outline-none focus:border-white/50 resize-none h-20 placeholder:text-white/20"
+                                    />
                                     <button
-                                        onClick={handleSaveMessage}
-                                        disabled={savingMessage}
-                                        className="bg-white text-gray-900 text-xs font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                        onClick={handleSendMessage}
+                                        disabled={sendingMessage || !newMessage.trim()}
+                                        className="self-end bg-white text-gray-900 text-xs font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40"
                                     >
-                                        {savingMessage ? "Saving..." : "Save"}
-                                    </button>
-                                    <button
-                                        onClick={() => { setMessage(incident.messages ?? ""); setEditingMessage(false); }}
-                                        className="bg-white/5 text-white/70 text-xs px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
-                                    >
-                                        Cancel
+                                        {sendingMessage ? "Sending..." : "Send"}
                                     </button>
                                 </div>
-                            </div>
-                        ) : (
-                            <p className="text-white/50 text-sm">{incident.messages || "No message yet."}</p>
+                                {messageError && (
+                                    <p className="text-red-400 text-xs mt-2">We're sorry! Something went wrong.</p>
+                                )}
+                            </>
                         )}
                     </div>
 
