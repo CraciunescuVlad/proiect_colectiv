@@ -291,9 +291,10 @@ app.get("/users/:id", requireAuth, async (req: Request, res: Response) => {
     });
 });
 
+
 app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { messages } = req.body;
+    const { message } = req.body;
     const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
@@ -319,9 +320,20 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
         return;
     }
 
+    const now = new Date().toISOString();
+
+    const { error: insertError } = await supabase
+        .from("messages")
+        .insert({ id_incident: id, id_user: userData.user.id, time: now, message });
+
+    if (insertError) {
+        res.status(500).json({ message: insertError.message });
+        return;
+    }
+
     const { data, error } = await supabase
         .from("incidents")
-        .update({ messages })
+        .update({ messages: message })
         .eq("incident_id", id)
         .select()
         .single();
@@ -332,6 +344,24 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
     }
 
     res.json(data);
+});
+
+app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+        .from("messages")
+        .select("id_message, id_user, time, message")
+        .eq("id_incident", id)
+        .order("time", { ascending: false })
+        .limit(3);
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data ?? []);
 });
 
 app.get("/incidents/:id", async (req: Request, res: Response) => {
