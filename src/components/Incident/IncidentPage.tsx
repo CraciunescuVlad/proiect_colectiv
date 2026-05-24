@@ -25,7 +25,7 @@ interface IncidentDetail {
 }
 
 interface Message {
-    id_message: string;
+    id_messaje: number;
     id_user: string;
     time: string;
     message: string;
@@ -127,6 +127,7 @@ const IncidentPage = () => {
     const [recentMessages, setRecentMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [sendingMessage, setSendingMessage] = useState(false);
+    const [messageError, setMessageError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchIncident = async () => {
@@ -177,6 +178,7 @@ const IncidentPage = () => {
     const handleSendMessage = async () => {
         if (!newMessage.trim()) return;
         setSendingMessage(true);
+        setMessageError(null);
         try {
             const res = await fetch(`http://localhost:3000/incidents/${id}/message`, {
                 method: "PATCH",
@@ -187,13 +189,18 @@ const IncidentPage = () => {
                 body: JSON.stringify({ message: newMessage.trim() }),
             });
             const data = await res.json();
+            if (!res.ok) {
+                setMessageError(data.message ?? `Error ${res.status}`);
+                return;
+            }
             setIncident(prev => prev ? { ...prev, messages: data.messages } : prev);
             setRecentMessages(prev => [
                 ...prev.slice(-2),
-                { id_message: crypto.randomUUID(), id_user: user?.id ?? "", time: new Date().toISOString(), message: newMessage.trim() },
+                { id_messaje: Date.now(), id_user: user?.id ?? "", time: new Date().toISOString(), message: newMessage.trim() },
             ]);
             setNewMessage("");
         } catch (err) {
+            setMessageError("Network error — check backend is running");
             console.error("Failed to send message", err);
         } finally {
             setSendingMessage(false);
@@ -285,7 +292,7 @@ const IncidentPage = () => {
                                 <p className="text-white/30 text-sm">No messages yet.</p>
                             ) : (
                                 recentMessages.map((msg) => (
-                                    <div key={msg.id_message} className="bg-white/5 border border-white/10 rounded-lg px-4 py-3">
+                                    <div key={msg.id_messaje} className="bg-white/5 border border-white/10 rounded-lg px-4 py-3">
                                         <div className="flex items-center justify-between mb-1">
                                             <span className="text-white/60 text-xs font-medium"><AssignedEmail userId={msg.id_user} /></span>
                                             <span className="text-white/30 text-xs">{new Date(msg.time).toLocaleString()}</span>
@@ -296,21 +303,26 @@ const IncidentPage = () => {
                             )}
                         </div>
                         {user?.role === "admin" && (
-                            <div className="flex gap-2">
-                                <textarea
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    placeholder="Add a message..."
-                                    className="flex-1 bg-white/5 text-white text-sm border border-white/20 rounded-lg px-4 py-3 outline-none focus:border-white/50 resize-none h-20 placeholder:text-white/20"
-                                />
-                                <button
-                                    onClick={handleSendMessage}
-                                    disabled={sendingMessage || !newMessage.trim()}
-                                    className="self-end bg-white text-gray-900 text-xs font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40"
-                                >
-                                    {sendingMessage ? "Sending..." : "Send"}
-                                </button>
-                            </div>
+                            <>
+                                <div className="flex gap-2">
+                                    <textarea
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        placeholder="Add a message..."
+                                        className="flex-1 bg-white/5 text-white text-sm border border-white/20 rounded-lg px-4 py-3 outline-none focus:border-white/50 resize-none h-20 placeholder:text-white/20"
+                                    />
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={sendingMessage || !newMessage.trim()}
+                                        className="self-end bg-white text-gray-900 text-xs font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40"
+                                    >
+                                        {sendingMessage ? "Sending..." : "Send"}
+                                    </button>
+                                </div>
+                                {messageError && (
+                                    <p className="text-red-400 text-xs mt-2">{messageError}</p>
+                                )}
+                            </>
                         )}
                     </div>
 
