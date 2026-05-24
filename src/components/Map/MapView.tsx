@@ -142,7 +142,7 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
     };
 
     return (
-        <div className="relative w-full h-full flex flex-col">
+        <div className="relative w-full h-full flex flex-col overflow-hidden">
 
             {/* Filter bar */}
             <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border-b border-white/10 flex-wrap shrink-0">

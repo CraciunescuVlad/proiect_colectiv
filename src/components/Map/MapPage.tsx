@@ -166,9 +166,11 @@ const MapPage = () => {
                         />
                     </div>
                 )}
-                <div className={`rounded-2xl overflow-hidden transition-all duration-300 h-full flex
-                                ${view === "list" ? "w-0 opacity-0" : view === "map" ? "w-full" : "w-[55%]"}`}>
-                    <div className="flex-1 min-w-0 h-full">
+                <div className={`rounded-2xl transition-all duration-300 h-full flex
+                    ${view === "list" ? "w-0 opacity-0" : view === "map" ? "w-full" : "w-[55%]"}`}>
+
+                    {/* Map — clips to rounded corners */}
+                    <div className="flex-1 min-w-0 rounded-2xl overflow-hidden">
                         <MapView
                             view={view}
                             sites={filteredSites}
@@ -181,11 +183,15 @@ const MapPage = () => {
                             onTechFilter={setSelectedTechs}
                         />
                     </div>
+
+                    {/* Sidebar — separate from map, own scroll context */}
                     {selectedSite && (
-                        <SiteDetailsSidebar
-                            selectedSite={selectedSite}
-                            onClose={() => setSelectedSite(null)}
-                        />
+                        <div style={{ height: "100%", display: "flex" }}>
+                            <SiteDetailsSidebar
+                                selectedSite={selectedSite}
+                                onClose={() => setSelectedSite(null)}
+                            />
+                        </div>
                     )}
                 </div>
             </div>

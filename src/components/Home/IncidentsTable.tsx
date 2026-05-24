@@ -19,9 +19,7 @@ const AssignedEmail = ({ userId }: { userId: string }) => {
             try {
                 const token = localStorage.getItem("token");
                 const res = await fetch(`http://localhost:3000/users/${userId}`, {
-                    headers: {
-                        "Authorization": `Bearer ${token}`,
-                    },
+                    headers: { "Authorization": `Bearer ${token}` },
                 });
                 const data = await res.json();
                 setEmail(data.email ?? null);
@@ -71,7 +69,7 @@ const MessageCell = ({ incidentId, initialMessage }: { incidentId: number; initi
 
     if (editing) {
         return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <input
                     type="text"
                     value={message}
@@ -83,17 +81,10 @@ const MessageCell = ({ incidentId, initialMessage }: { incidentId: number; initi
                         if (e.key === "Escape") handleCancel();
                     }}
                 />
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="text-green-400 hover:text-green-300 transition-colors shrink-0"
-                >
+                <button onClick={(e) => { e.stopPropagation(); handleSave(); }} disabled={saving} className="text-green-400 hover:text-green-300 transition-colors shrink-0">
                     <Check size={14} />
                 </button>
-                <button
-                    onClick={handleCancel}
-                    className="text-white/40 hover:text-white transition-colors shrink-0"
-                >
+                <button onClick={(e) => { e.stopPropagation(); handleCancel(); }} className="text-white/40 hover:text-white transition-colors shrink-0">
                     <X size={14} />
                 </button>
             </div>
@@ -101,10 +92,10 @@ const MessageCell = ({ incidentId, initialMessage }: { incidentId: number; initi
     }
 
     return (
-        <div className="flex items-center gap-2 group">
+        <div className="flex items-center gap-2 group" onClick={(e) => e.stopPropagation()}>
             <span className="text-white/40 text-xs">{message || "—"}</span>
             <button
-                onClick={() => setEditing(true)}
+                onClick={(e) => { e.stopPropagation(); setEditing(true); }}
                 className="text-white/20 hover:text-white/60 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
             >
                 <Pencil size={12} />
@@ -118,12 +109,15 @@ const IncidentsTable = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="border border-white/10 rounded-2xl overflow-hidden mt-6">
+        <div className="border border-white/10 rounded-2xl overflow-hidden">
+
+            {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
                 <h2 className="text-white text-sm font-semibold">Active Incidents</h2>
                 <span className="text-white/30 text-xs">{incidents.length} total</span>
             </div>
 
+            {/* Column labels */}
             <div className="grid grid-cols-5 px-5 py-2 border-b border-white/5">
                 <span className="text-white/30 text-xs">ID</span>
                 <span className="text-white/30 text-xs">Priority</span>
@@ -132,11 +126,16 @@ const IncidentsTable = () => {
                 <span className="text-white/30 text-xs">Message</span>
             </div>
 
-            <div className="p-2">
-                {loading && <p className="text-white/40 text-sm px-4 py-3">Loading incidents...</p>}
-                {error && <p className="text-red-400 text-sm px-4 py-3">{error}</p>}
+            {/* Rows */}
+            <div className="divide-y divide-white/5">
+                {loading && (
+                    <p className="text-white/40 text-sm px-5 py-4">Loading incidents...</p>
+                )}
+                {error && (
+                    <p className="text-red-400 text-sm px-5 py-4">{error}</p>
+                )}
                 {!loading && !error && incidents.length === 0 && (
-                    <p className="text-white/40 text-sm px-4 py-3">No active incidents</p>
+                    <p className="text-white/40 text-sm px-5 py-4">No active incidents</p>
                 )}
                 {!loading && !error && incidents.map((incident) => {
                     const priority = priorityColors[incident.priority] ?? priorityColors["Warning"];
@@ -144,7 +143,7 @@ const IncidentsTable = () => {
                         <div
                             key={incident.incident_id}
                             onClick={() => navigate(`/incident/${incident.incident_id}`)}
-                            className="grid grid-cols-5 items-center px-4 py-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/10"
+                            className="grid grid-cols-5 items-center px-5 py-3 hover:bg-white/5 transition-colors cursor-pointer"
                         >
                             <span className="text-white/70 text-sm font-mono">INC{incident.incident_id}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full border w-fit ${priority.bg} ${priority.text} ${priority.border}`}>
