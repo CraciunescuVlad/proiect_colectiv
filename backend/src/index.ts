@@ -653,23 +653,18 @@ app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => 
     // notify all admins
     (async () => {
         try {
-            const { data: adminProfiles, error: profilesError } = await supabase
+            const { data: adminProfiles } = await supabase
                 .from("profiles")
                 .select("id")
                 .eq("role", "admin");
 
-            console.log("[admin-request] adminProfiles:", adminProfiles, "error:", profilesError);
-
-            const { data: allUsers, error: usersError } = await supabase.auth.admin.listUsers();
-            console.log("[admin-request] listUsers error:", usersError, "count:", allUsers?.users?.length);
+            const { data: allUsers } = await supabase.auth.admin.listUsers();
 
             const adminIds = new Set(adminProfiles?.map((p: any) => p.id) ?? []);
             const adminEmails = allUsers?.users
                 .filter(u => adminIds.has(u.id))
                 .map(u => u.email)
                 .filter(Boolean) as string[];
-
-            console.log("[admin-request] adminEmails to notify:", adminEmails);
 
             const { data: requesterAuth } = await supabase.auth.admin.getUserById(userId);
             const requesterEmail = requesterAuth?.user?.email ?? userId;
@@ -682,7 +677,7 @@ app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => 
   <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${requesterEmail}</p>
   <p style="color:#4b5563;font-size:12px;margin-top:24px;">Log in to AlarmUP to approve or reject this request.</p>
 </div>`);
-                console.log("[admin-request] email sent to:", email);
+
             }
         } catch (err) {
             console.error("Failed to notify admins:", err);
