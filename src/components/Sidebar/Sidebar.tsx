@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { BarChart2, Map, LogOut, LayoutDashboard } from "lucide-react";
+import { BarChart2, Map, LogOut, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { useUser } from "../../context/UserContext";
 
 const Sidebar = () => {
@@ -19,6 +19,7 @@ const Sidebar = () => {
         { label: "Dashboard", icon: <LayoutDashboard size={20} />, route: "/home" },
         { label: "Statistics", icon: <BarChart2 size={20} />, route: "/statistics" },
         { label: "Map", icon: <Map size={20} />, route: "/harta" },
+        { label: "Admin Access", icon: <ShieldCheck size={20} />, route: "/admin-requests" },
     ];
 
     return (

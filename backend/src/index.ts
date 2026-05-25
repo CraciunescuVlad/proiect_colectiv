@@ -620,4 +620,191 @@ app.get("/incidents/:id", async (req: Request, res: Response) => {
     res.json({ ...incident, alarms: alarms ?? [] });
 });
 
+// ── Admin Request endpoints ──────────────────────────────────────────────────
+
+app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+
+    const { data: existing } = await supabase
+        .from("admin_requests")
+        .select("id_request, status")
+        .eq("user_id", userId)
+        .eq("status", "pending")
+        .maybeSingle();
+
+    if (existing) {
+        res.status(409).json({ message: "You already have a pending request" });
+        return;
+    }
+
+    const { data, error } = await supabase
+        .from("admin_requests")
+        .insert({ user_id: userId })
+        .select()
+        .single();
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data);
+
+    // notify all admins
+    (async () => {
+        try {
+            const { data: adminProfiles, error: profilesError } = await supabase
+                .from("profiles")
+                .select("id")
+                .eq("role", "admin");
+
+            console.log("[admin-request] adminProfiles:", adminProfiles, "error:", profilesError);
+
+            const { data: allUsers, error: usersError } = await supabase.auth.admin.listUsers();
+            console.log("[admin-request] listUsers error:", usersError, "count:", allUsers?.users?.length);
+
+            const adminIds = new Set(adminProfiles?.map((p: any) => p.id) ?? []);
+            const adminEmails = allUsers?.users
+                .filter(u => adminIds.has(u.id))
+                .map(u => u.email)
+                .filter(Boolean) as string[];
+
+            console.log("[admin-request] adminEmails to notify:", adminEmails);
+
+            const { data: requesterAuth } = await supabase.auth.admin.getUserById(userId);
+            const requesterEmail = requesterAuth?.user?.email ?? userId;
+
+            for (const email of adminEmails) {
+                await sendHtmlEmail(email, "[AlarmUP] New admin access request", `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#fff;margin-bottom:4px;">New Admin Access Request</h2>
+  <p style="color:#6b7280;margin-top:0;">A user has requested admin access on AlarmUP.</p>
+  <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${requesterEmail}</p>
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">Log in to AlarmUP to approve or reject this request.</p>
+</div>`);
+                console.log("[admin-request] email sent to:", email);
+            }
+        } catch (err) {
+            console.error("Failed to notify admins:", err);
+        }
+    })();
+});
+
+app.get("/admin-requests/my", requireAuth, async (req: Request, res: Response) => {
+    const { data, error } = await supabase
+        .from("admin_requests")
+        .select("id_request, status, created_at")
+        .eq("user_id", req.user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data ?? null);
+});
+
+app.get("/admin-requests", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const { data, error } = await supabase
+        .from("admin_requests")
+        .select("id_request, user_id, status, created_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: true });
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    const { data: allUsers } = await supabase.auth.admin.listUsers();
+    const userMap = new Map(allUsers?.users.map(u => [u.id, u.email]) ?? []);
+
+    const enriched = (data ?? []).map((r: any) => ({
+        id_request: r.id_request,
+        user_id: r.user_id,
+        status: r.status,
+        created_at: r.created_at,
+        email: userMap.get(r.user_id) ?? r.user_id,
+    }));
+
+    res.json(enriched);
+});
+
+app.patch("/admin-requests/:id/approve", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idInt = parseInt(id as string);
+
+    const { data: reqData, error: fetchError } = await supabase
+        .from("admin_requests")
+        .select("user_id")
+        .eq("id_request", idInt)
+        .single();
+
+    if (fetchError || !reqData) {
+        res.status(404).json({ message: "Request not found" });
+        return;
+    }
+
+    await supabase.from("admin_requests").update({ status: "approved" }).eq("id_request", idInt);
+    await supabase.from("profiles").update({ role: "admin" }).eq("id", reqData.user_id);
+
+    res.json({ message: "Approved" });
+
+    (async () => {
+        try {
+            const { data: userAuth } = await supabase.auth.admin.getUserById(reqData.user_id);
+            const email = userAuth?.user?.email;
+            if (!email) return;
+            await sendHtmlEmail(email, "[AlarmUP] Your admin request was approved", `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#4ade80;margin-bottom:4px;">Request Approved</h2>
+  <p style="color:#e2e8f0;">Your request for admin access on AlarmUP has been <strong style="color:#4ade80;">approved</strong>.</p>
+  <p style="color:#6b7280;font-size:13px;">Log in again to activate your new permissions.</p>
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · Automated notification</p>
+</div>`);
+        } catch (err) {
+            console.error("Failed to send approval email:", err);
+        }
+    })();
+});
+
+app.patch("/admin-requests/:id/reject", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idInt = parseInt(id as string);
+
+    const { data: reqData, error: fetchError } = await supabase
+        .from("admin_requests")
+        .select("user_id")
+        .eq("id_request", idInt)
+        .single();
+
+    if (fetchError || !reqData) {
+        res.status(404).json({ message: "Request not found" });
+        return;
+    }
+
+    await supabase.from("admin_requests").update({ status: "rejected" }).eq("id_request", idInt);
+
+    res.json({ message: "Rejected" });
+
+    (async () => {
+        try {
+            const { data: userAuth } = await supabase.auth.admin.getUserById(reqData.user_id);
+            const email = userAuth?.user?.email;
+            if (!email) return;
+            await sendHtmlEmail(email, "[AlarmUP] Your admin request was rejected", `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#f87171;margin-bottom:4px;">Request Rejected</h2>
+  <p style="color:#e2e8f0;">Your request for admin access on AlarmUP has been <strong style="color:#f87171;">rejected</strong>.</p>
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · Automated notification</p>
+</div>`);
+        } catch (err) {
+            console.error("Failed to send rejection email:", err);
+        }
+    })();
+});
+
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))
