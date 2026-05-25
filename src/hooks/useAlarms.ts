@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import type { Alarm } from "../types/alarms.ts";
+
+export interface Alarm {
+    alarm_id: number;
+    status: number;
+    start_time: string;
+    resolved_time: string | null;
+    tehnologie: string;
+    type: { reason: string } | null;
+    site: { city: string; address: string } | null;
+}
 
 const useAlarms = () => {
     const [alarms, setAlarms] = useState<Alarm[]>([]);
@@ -9,16 +18,18 @@ const useAlarms = () => {
     useEffect(() => {
         const fetchAlarms = async () => {
             try {
-                const response = await fetch("http://localhost:3000/alarms");
+                const token = localStorage.getItem("token");
+                const response = await fetch("http://localhost:3000/alarms", {
+                    headers: { "Authorization": `Bearer ${token}` },
+                });
                 const data = await response.json();
-                setAlarms(data);
+                setAlarms(Array.isArray(data) ? data : []);
             } catch (err) {
                 setError("Failed to fetch alarms");
             } finally {
                 setLoading(false);
             }
         };
-
         fetchAlarms();
     }, []);
 

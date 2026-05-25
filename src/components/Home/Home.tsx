@@ -21,15 +21,15 @@ const Home = () => {
             <div className="flex items-center justify-between mb-8">
                 <h1 className="text-white text-2xl font-semibold">Dashboard</h1>
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm px-4 py-2 rounded-lg transition-colors">
-                        <ArrowDownToLine size={16} />
-                        Download Report
-                    </button>
-                    <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm px-4 py-2 rounded-lg transition-colors">
-                        <Calendar size={16} />
-                        Last 30 Days
-                        <ChevronDown size={16} />
-                    </button>
+                    {/*<button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm px-4 py-2 rounded-lg transition-colors">*/}
+                    {/*    <ArrowDownToLine size={16} />*/}
+                    {/*    Download Report*/}
+                    {/*</button>*/}
+                    {/*<button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm px-4 py-2 rounded-lg transition-colors">*/}
+                    {/*    <Calendar size={16} />*/}
+                    {/*    Last 30 Days*/}
+                    {/*    <ChevronDown size={16} />*/}
+                    {/*</button>*/}
                 </div>
             </div>
 

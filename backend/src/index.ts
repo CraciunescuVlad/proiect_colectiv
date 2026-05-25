@@ -295,10 +295,19 @@ app.get("/sites", requireAuth, async (req: Request, res: Response) => {
 
 
 // GET toate alarmele
-app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
+app.get("/alarms", async (req: Request, res: Response) => {
     const { data, error } = await supabase
         .from("alarms")
-        .select("alarm_id, status, start_time, resolved_time, type, tehnologie, site")
+        .select(`
+            alarm_id,
+            status,
+            start_time,
+            resolved_time,
+            tehnologie,
+            type:alarm_types(reason),
+            site:site(city, address)
+        `)
+        .is("resolved_time", null)
 
     if (error) {
         res.status(500).json({ message: error.message })
@@ -311,26 +320,51 @@ app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
 
 
 // GET toate incidentele
-app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
+app.get("/incidents", async (req: Request, res: Response) => {
     const { status } = req.query;
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+        res.status(401).json({ message: "No token provided" });
+        return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData.user) {
+        res.status(401).json({ message: "Invalid token" });
+        return;
+    }
+
+    const { data: roleData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userData.user.id)
+        .single();
+
+    const isAdmin = roleData?.role === "admin";
 
     let query = supabase
         .from("incidents")
         .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
 
     if (status !== undefined) {
-        query = query.eq("status", Number(status))
+        query = query.eq("status", Number(status));
+    }
+
+    // non-admin users only see their own incidents
+    if (!isAdmin) {
+        query = query.eq("assigned_to", userData.user.id);
     }
 
     const { data, error } = await query;
 
     if (error) {
-        res.status(500).json({ message: error.message })
-        return
+        res.status(500).json({ message: error.message });
+        return;
     }
 
-    res.json(data)
-})
+    res.json(data);
+});
 
 //incidente active
 
