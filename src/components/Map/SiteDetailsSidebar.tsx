@@ -177,13 +177,11 @@ const SiteDetailsSidebar = ({
                 setLoadingAlarms(false);
             }
         };
-
         fetchAlarms();
     }, [site.id]);
 
     useEffect(() => {
         if (!assigned) return;
-
         const fetchAssignedUser = async () => {
             try {
                 const res = await fetch(`http://localhost:3000/users/${assigned}`);
@@ -193,7 +191,6 @@ const SiteDetailsSidebar = ({
                 setAssignedEmail(null);
             }
         };
-
         fetchAssignedUser();
     }, [assigned]);
 
@@ -204,12 +201,13 @@ const SiteDetailsSidebar = ({
 
     return (
         <div
-            className={`h-full w-96 bg-[#0a0015]/95 backdrop-blur-sm border-l border-white/10 z-50 flex flex-col overflow-hidden shrink-0
-                        transition-transform duration-300 ease-in-out
-                        ${visible ? "translate-x-0" : "translate-x-full"}`}
+            className={`w-96 bg-[#0a0015]/95 backdrop-blur-sm border-l border-white/10 z-50 flex flex-col shrink-0
+                transition-transform duration-300 ease-in-out
+                ${visible ? "translate-x-0" : "translate-x-full"}`}
+            style={{ height: "100%", maxHeight: "100%" }}
         >
-            {/* Header */}
-            <div className="flex items-start justify-between p-5 border-b border-white/10">
+            {/* Header — fixed, never scrolls */}
+            <div className="flex items-start justify-between p-5 border-b border-white/10 shrink-0">
                 <div>
                     <h2 className="text-white font-semibold text-base">{site.city}</h2>
                     <p className="text-white/40 text-xs mt-1">{site.address}</p>
@@ -220,9 +218,11 @@ const SiteDetailsSidebar = ({
                 </button>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5 min-h-0">
-
+            {/* Content — scrollable */}
+            <div
+                className="p-5 flex flex-col gap-5 overflow-y-auto"
+                style={{ flex: "1 1 0", minHeight: 0 }}
+            >
                 {/* Incident */}
                 {incident ? (
                     <div>
@@ -325,27 +325,27 @@ const SiteDetailsSidebar = ({
                 </div>
 
                 {/* Charts */}
-                <div className="border border-white/10 rounded-xl overflow-hidden">
-                    <div className="px-4 py-3 border-b border-white/10">
-                        <p className="text-white text-sm font-medium">Last 30 Days</p>
-                    </div>
-                    <div className="p-4 flex flex-col gap-5">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
-                                <p className="text-white/50 text-xs">Alarms</p>
-                            </div>
-                            <SiteChart siteId={site.id} type="alarms" color="#818cf8" />
-                        </div>
-                        <div className="border-t border-white/10 pt-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-pink-400 inline-block" />
-                                <p className="text-white/50 text-xs">Incidents</p>
-                            </div>
-                            <SiteChart siteId={site.id} type="incidents" color="#f472b6" />
-                        </div>
-                    </div>
-                </div>
+                {/*<div className="border border-white/10 rounded-xl overflow-hidden">*/}
+                {/*    <div className="px-4 py-3 border-b border-white/10">*/}
+                {/*        <p className="text-white text-sm font-medium">Last 30 Days</p>*/}
+                {/*    </div>*/}
+                {/*    <div className="p-4 flex flex-col gap-5">*/}
+                {/*        <div>*/}
+                {/*            <div className="flex items-center gap-2 mb-2">*/}
+                {/*                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />*/}
+                {/*                <p className="text-white/50 text-xs">Alarms</p>*/}
+                {/*            </div>*/}
+                {/*            <SiteChart siteId={site.id} type="alarms" color="#818cf8" />*/}
+                {/*        </div>*/}
+                {/*        <div className="border-t border-white/10 pt-4">*/}
+                {/*            <div className="flex items-center gap-2 mb-2">*/}
+                {/*                <span className="w-1.5 h-1.5 rounded-full bg-pink-400 inline-block" />*/}
+                {/*                <p className="text-white/50 text-xs">Incidents</p>*/}
+                {/*            </div>*/}
+                {/*            <SiteChart siteId={site.id} type="incidents" color="#f472b6" />*/}
+                {/*        </div>*/}
+                {/*    </div>*/}
+                {/*</div>*/}
 
             </div>
         </div>

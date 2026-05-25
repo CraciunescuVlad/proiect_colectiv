@@ -2,7 +2,7 @@ import useAlarms from "../../hooks/useAlarms";
 import useStats from "../../hooks/useStats";
 import StatCard from "./StatCard";
 import { ArrowDownToLine, Calendar, ChevronDown } from "lucide-react";
-import IncidentsTable from "./IncidentsTable.tsx";
+import IncidentsTable from "./IncidentsTable";
 
 const Home = () => {
     const { loading: statsLoading } = useAlarms();
@@ -15,7 +15,7 @@ const Home = () => {
     const avgResolveTime = statsLoading ? "..." : (stats?.avgResolveTime ?? "N/A");
 
     return (
-        <div className="flex flex-col h-screen bg-[#060010] px-24 py-6 overflow-y-auto">
+        <div className="flex flex-col bg-[#060010] px-24 py-6 min-h-screen">
 
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
@@ -36,14 +36,11 @@ const Home = () => {
             {/* Stats row */}
             <div className="flex w-full mb-8">
                 <StatCard label="Total Alarms"       value={totalAlarms}         change="25.32%" up={true}  />
-                <StatCard label="Incidents"          value={`${totalIncidents}`} change="25.32%" up={true}  />
+                <StatCard label="Incidents"          value={totalIncidents}      change="25.32%" up={true}  />
                 <StatCard label="Resolution Rate"    value={resolutionRate}      change="25.32%" up={false} />
                 <StatCard label="Avg Resolve Time"   value={avgResolveTime}      change="25.32%" up={false} />
-                <StatCard label="Critical Incidents" value={`${criticalCount}`}  change="25.32%" up={false} />
+                <StatCard label="Critical Incidents" value={criticalCount}       change="25.32%" up={false} />
             </div>
-
-            {/* Chart */}
-            {/*<IncidentChart />*/}
 
             {/* Table */}
             <IncidentsTable />
