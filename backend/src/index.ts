@@ -370,7 +370,7 @@ app.patch("/incidents/:id/assign", requireAuth, requireAdmin, async (req: Reques
     }
 });
 
-app.get("/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+app.get("/users", requireAuth, async (req: Request, res: Response) => {
     const { data, error } = await supabase.auth.admin.listUsers();
 
     if (error) {
@@ -497,6 +497,100 @@ app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Respon
     res.json(data ?? []);
 });
 
+app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { recipient_id } = req.body;
+
+    if (!recipient_id) {
+        res.status(400).json({ message: "recipient_id is required" });
+        return;
+    }
+
+    const { data: recipientAuth, error: recipientError } = await supabase.auth.admin.getUserById(recipient_id);
+    if (recipientError || !recipientAuth?.user?.email) {
+        res.status(404).json({ message: "Recipient not found" });
+        return;
+    }
+
+    const { incident, alarms, site } = await getIncidentEmailData(id as string);
+
+    const { data: messages } = await supabase
+        .from("messages")
+        .select("id_messaje, id_user, time, message")
+        .eq("id_incident", parseInt(id as string))
+        .order("time", { ascending: true });
+
+    let assignedEmail = "Unassigned";
+    if (incident?.assigned_to) {
+        const { data: assignedAuth } = await supabase.auth.admin.getUserById(incident.assigned_to);
+        assignedEmail = assignedAuth?.user?.email ?? incident.assigned_to;
+    }
+
+    const messageRows = messages?.length
+        ? messages.map(m => `
+            <tr>
+                <td style="padding:8px 10px;color:#94a3b8;font-size:12px;white-space:nowrap;">${new Date(m.time).toLocaleString()}</td>
+                <td style="padding:8px 10px;color:#a78bfa;font-size:12px;">${m.id_user}</td>
+                <td style="padding:8px 10px;color:#e2e8f0;font-size:13px;">${m.message}</td>
+            </tr>`).join("")
+        : `<tr><td colspan="3" style="padding:10px;color:#4b5563;font-size:12px;">No messages</td></tr>`;
+
+    const alarmRows = alarms.map(a =>
+        `<tr><td style="padding:6px 10px;color:#94a3b8;">${a.tehnologie} · ${a.type}</td><td style="padding:6px 10px;color:#94a3b8;">${a.site}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
+    ).join("");
+
+    const mapImg = site
+        ? `<img src="${staticMapUrl(site.latitudine, site.longitude)}" width="600" style="border-radius:8px;display:block;margin:16px 0;" alt="Incident location"/>`
+        : "";
+
+    const html = `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#fff;margin-bottom:4px;">Incident Report</h2>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${id}</strong></p>
+
+  <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${incident?.priority ?? "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${incident?.status === 1 ? "#f87171" : "#4ade80"};">${incident?.status === 1 ? "Active" : "Resolved"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">End time</td><td style="color:#fff;">${incident?.end_time ? new Date(incident.end_time).toLocaleString() : "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Assigned to</td><td style="color:#fff;">${assignedEmail}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${site.city ?? ""} — ${site.address ?? ""}` : "—"}</td></tr>
+  </table>
+
+  ${mapImg}
+
+  ${alarms.length ? `
+  <h3 style="color:#fff;margin-bottom:8px;">Related Alarms (${alarms.length})</h3>
+  <table style="width:100%;border-collapse:collapse;background:#1a1030;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+    <thead><tr style="background:#2d1f4e;">
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">Technology</th>
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">Site</th>
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">Status</th>
+    </tr></thead>
+    <tbody>${alarmRows}</tbody>
+  </table>` : ""}
+
+  <h3 style="color:#fff;margin-bottom:8px;">Messages</h3>
+  <table style="width:100%;border-collapse:collapse;background:#1a1030;border-radius:8px;overflow:hidden;">
+    <thead><tr style="background:#2d1f4e;">
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">Time</th>
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">User</th>
+      <th style="padding:8px 10px;color:#a78bfa;text-align:left;font-size:12px;">Message</th>
+    </tr></thead>
+    <tbody>${messageRows}</tbody>
+  </table>
+
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · This is an automated report</p>
+</div>`;
+
+    try {
+        await sendHtmlEmail(recipientAuth.user.email, `[AlarmUP] Incident Report — INC${id}`, html);
+        res.json({ message: "Report sent" });
+    } catch (err) {
+        res.status(500).json({ message: "Failed to send email" });
+    }
+});
+
 app.get("/incidents/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -524,6 +618,188 @@ app.get("/incidents/:id", async (req: Request, res: Response) => {
         .in("alarm_id", alarmIds);
 
     res.json({ ...incident, alarms: alarms ?? [] });
+});
+
+// ── Admin Request endpoints ──────────────────────────────────────────────────
+
+app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+
+    const { data: existing } = await supabase
+        .from("admin_requests")
+        .select("id_request, status")
+        .eq("user_id", userId)
+        .eq("status", "pending")
+        .maybeSingle();
+
+    if (existing) {
+        res.status(409).json({ message: "You already have a pending request" });
+        return;
+    }
+
+    const { data, error } = await supabase
+        .from("admin_requests")
+        .insert({ user_id: userId })
+        .select()
+        .single();
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data);
+
+    // notify all admins
+    (async () => {
+        try {
+            const { data: adminProfiles } = await supabase
+                .from("profiles")
+                .select("id")
+                .eq("role", "admin");
+
+            const { data: allUsers } = await supabase.auth.admin.listUsers();
+
+            const adminIds = new Set(adminProfiles?.map((p: any) => p.id) ?? []);
+            const adminEmails = allUsers?.users
+                .filter(u => adminIds.has(u.id))
+                .map(u => u.email)
+                .filter(Boolean) as string[];
+
+            const { data: requesterAuth } = await supabase.auth.admin.getUserById(userId);
+            const requesterEmail = requesterAuth?.user?.email ?? userId;
+
+            for (const email of adminEmails) {
+                await sendHtmlEmail(email, "[AlarmUP] New admin access request", `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#fff;margin-bottom:4px;">New Admin Access Request</h2>
+  <p style="color:#6b7280;margin-top:0;">A user has requested admin access on AlarmUP.</p>
+  <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${requesterEmail}</p>
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">Log in to AlarmUP to approve or reject this request.</p>
+</div>`);
+
+            }
+        } catch (err) {
+            console.error("Failed to notify admins:", err);
+        }
+    })();
+});
+
+app.get("/admin-requests/my", requireAuth, async (req: Request, res: Response) => {
+    const { data, error } = await supabase
+        .from("admin_requests")
+        .select("id_request, status, created_at")
+        .eq("user_id", req.user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json(data ?? null);
+});
+
+app.get("/admin-requests", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const { data, error } = await supabase
+        .from("admin_requests")
+        .select("id_request, user_id, status, created_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: true });
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    const { data: allUsers } = await supabase.auth.admin.listUsers();
+    const userMap = new Map(allUsers?.users.map(u => [u.id, u.email]) ?? []);
+
+    const enriched = (data ?? []).map((r: any) => ({
+        id_request: r.id_request,
+        user_id: r.user_id,
+        status: r.status,
+        created_at: r.created_at,
+        email: userMap.get(r.user_id) ?? r.user_id,
+    }));
+
+    res.json(enriched);
+});
+
+app.patch("/admin-requests/:id/approve", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idInt = parseInt(id as string);
+
+    const { data: reqData, error: fetchError } = await supabase
+        .from("admin_requests")
+        .select("user_id")
+        .eq("id_request", idInt)
+        .single();
+
+    if (fetchError || !reqData) {
+        res.status(404).json({ message: "Request not found" });
+        return;
+    }
+
+    await supabase.from("admin_requests").update({ status: "approved" }).eq("id_request", idInt);
+    await supabase.from("profiles").update({ role: "admin" }).eq("id", reqData.user_id);
+
+    res.json({ message: "Approved" });
+
+    (async () => {
+        try {
+            const { data: userAuth } = await supabase.auth.admin.getUserById(reqData.user_id);
+            const email = userAuth?.user?.email;
+            if (!email) return;
+            await sendHtmlEmail(email, "[AlarmUP] Your admin request was approved", `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#4ade80;margin-bottom:4px;">Request Approved</h2>
+  <p style="color:#e2e8f0;">Your request for admin access on AlarmUP has been <strong style="color:#4ade80;">approved</strong>.</p>
+  <p style="color:#6b7280;font-size:13px;">Log in again to activate your new permissions.</p>
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · Automated notification</p>
+</div>`);
+        } catch (err) {
+            console.error("Failed to send approval email:", err);
+        }
+    })();
+});
+
+app.patch("/admin-requests/:id/reject", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idInt = parseInt(id as string);
+
+    const { data: reqData, error: fetchError } = await supabase
+        .from("admin_requests")
+        .select("user_id")
+        .eq("id_request", idInt)
+        .single();
+
+    if (fetchError || !reqData) {
+        res.status(404).json({ message: "Request not found" });
+        return;
+    }
+
+    await supabase.from("admin_requests").update({ status: "rejected" }).eq("id_request", idInt);
+
+    res.json({ message: "Rejected" });
+
+    (async () => {
+        try {
+            const { data: userAuth } = await supabase.auth.admin.getUserById(reqData.user_id);
+            const email = userAuth?.user?.email;
+            if (!email) return;
+            await sendHtmlEmail(email, "[AlarmUP] Your admin request was rejected", `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#f87171;margin-bottom:4px;">Request Rejected</h2>
+  <p style="color:#e2e8f0;">Your request for admin access on AlarmUP has been <strong style="color:#f87171;">rejected</strong>.</p>
+  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · Automated notification</p>
+</div>`);
+        } catch (err) {
+            console.error("Failed to send rejection email:", err);
+        }
+    })();
 });
 
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))

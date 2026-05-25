@@ -128,6 +128,11 @@ const IncidentPage = () => {
     const [newMessage, setNewMessage] = useState("");
     const [sendingMessage, setSendingMessage] = useState(false);
     const [messageError, setMessageError] = useState<string | null>(null);
+    const [users, setUsers] = useState<{ id: string; email: string }[]>([]);
+    const [showReportPanel, setShowReportPanel] = useState(false);
+    const [reportRecipient, setReportRecipient] = useState("");
+    const [sendingReport, setSendingReport] = useState(false);
+    const [reportSent, setReportSent] = useState(false);
 
     useEffect(() => {
         const fetchIncident = async () => {
@@ -153,6 +158,45 @@ const IncidentPage = () => {
         };
         fetchIncident();
     }, [id]);
+
+    const handleOpenReport = async () => {
+        setShowReportPanel(true);
+        setReportSent(false);
+        if (users.length > 0) return;
+        try {
+            const res = await fetch("http://localhost:3000/users", {
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+            });
+            const data = await res.json();
+            setUsers(Array.isArray(data) ? data : []);
+        } catch {
+            setUsers([]);
+        }
+    };
+
+    const handleSendReport = async () => {
+        if (!reportRecipient) return;
+        setSendingReport(true);
+        try {
+            const res = await fetch(`http://localhost:3000/incidents/${id}/send-report`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({ recipient_id: reportRecipient }),
+            });
+            if (res.ok) {
+                setReportSent(true);
+                setShowReportPanel(false);
+                setReportRecipient("");
+            }
+        } catch {
+            // silent
+        } finally {
+            setSendingReport(false);
+        }
+    };
 
     const handleAssign = async () => {
         if (!incident || !user) return;
@@ -385,17 +429,58 @@ const IncidentPage = () => {
                     {/* Actions */}
                     <div className="border border-white/10 rounded-2xl p-6">
                         <h2 className="text-white font-medium text-sm mb-4">Actions</h2>
-                        {user?.role === "admin" ? (
-                            <button
-                                onClick={handleAssign}
-                                disabled={assigning}
-                                className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                            >
-                                {assigning ? "Assigning..." : incident.assigned_to === user.id ? "Reassign to me" : "Assign to me"}
-                            </button>
-                        ) : (
-                            <p className="text-white/30 text-xs">No actions available</p>
-                        )}
+                        <div className="flex flex-col gap-3">
+                            {user?.role === "admin" && (
+                                <button
+                                    onClick={handleAssign}
+                                    disabled={assigning}
+                                    className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                    {assigning ? "Assigning..." : incident.assigned_to === user.id ? "Reassign to me" : "Assign to me"}
+                                </button>
+                            )}
+
+                            {!showReportPanel ? (
+                                <button
+                                    onClick={handleOpenReport}
+                                    className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors"
+                                >
+                                    Send Report
+                                </button>
+                            ) : (
+                                <div className="flex flex-col gap-2">
+                                    <select
+                                        value={reportRecipient}
+                                        onChange={(e) => setReportRecipient(e.target.value)}
+                                        className="w-full text-sm border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-white/50"
+                                        style={{ backgroundColor: "#1a1030", color: "white" }}
+                                    >
+                                        <option value="" disabled style={{ backgroundColor: "#1a1030", color: "#6b7280" }}>Select recipient...</option>
+                                        {users.map(u => (
+                                            <option key={u.id} value={u.id} style={{ backgroundColor: "#1a1030", color: "white" }}>{u.email}</option>
+                                        ))}
+                                    </select>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleSendReport}
+                                            disabled={sendingReport || !reportRecipient}
+                                            className="flex-1 py-2 bg-white text-gray-900 text-xs font-medium rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40"
+                                        >
+                                            {sendingReport ? "Sending..." : "Send"}
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowReportPanel(false); setReportRecipient(""); }}
+                                            className="flex-1 py-2 bg-white/5 text-white/70 text-xs rounded-lg hover:bg-white/10 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {reportSent && (
+                                <p className="text-green-400 text-xs text-center">Report sent successfully.</p>
+                            )}
+                        </div>
                     </div>
 
                 </div>
