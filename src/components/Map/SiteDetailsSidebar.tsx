@@ -182,9 +182,15 @@ const SiteDetailsSidebar = ({
 
     useEffect(() => {
         if (!assigned) return;
+
+        setAssignedEmail(null);
+
         const fetchAssignedUser = async () => {
             try {
-                const res = await fetch(`http://localhost:3000/users/${assigned}`);
+                const token = localStorage.getItem("token");
+                const res = await fetch(`http://localhost:3000/users/${assigned}`, {
+                    headers: { "Authorization": `Bearer ${token}` },
+                });
                 const data = await res.json();
                 setAssignedEmail(data.email ?? null);
             } catch {
@@ -256,7 +262,12 @@ const SiteDetailsSidebar = ({
                                             <div className="flex items-center justify-between">
                                                 <span className="text-white/50 text-xs">Assigned to</span>
                                                 <span className="text-green-400 text-xs">
-                                                    {assigned === user?.id ? `You (${user.email})` : assignedEmail ?? assigned}
+                                                    {assigned === user?.id
+                                                        ? `You (${user.email})`
+                                                        : assignedEmail
+                                                            ? assignedEmail
+                                                            : <span className="text-white/30">Loading...</span>
+                                                    }
                                                 </span>
                                             </div>
                                         )}
