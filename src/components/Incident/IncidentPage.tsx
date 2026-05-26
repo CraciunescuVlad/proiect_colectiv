@@ -131,8 +131,16 @@ const IncidentPage = () => {
     const [users, setUsers] = useState<{ id: string; email: string }[]>([]);
     const [showReportPanel, setShowReportPanel] = useState(false);
     const [reportRecipient, setReportRecipient] = useState("");
+    const [reportEmailInput, setReportEmailInput] = useState("");
+    const [reportMode, setReportMode] = useState<"user" | "email">("user");
     const [sendingReport, setSendingReport] = useState(false);
     const [reportSent, setReportSent] = useState(false);
+    const [reportError, setReportError] = useState<string | null>(null);
+    const [showResolvePanel, setShowResolvePanel] = useState(false);
+    const [resolveDateTime, setResolveDateTime] = useState("");
+    const [resolveMessage, setResolveMessage] = useState("");
+    const [resolvingIncident, setResolvingIncident] = useState(false);
+    const [resolveError, setResolveError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchIncident = async () => {
@@ -162,6 +170,7 @@ const IncidentPage = () => {
     const handleOpenReport = async () => {
         setShowReportPanel(true);
         setReportSent(false);
+        setReportError(null);
         if (users.length > 0) return;
         try {
             const res = await fetch("http://localhost:3000/users", {
@@ -175,26 +184,75 @@ const IncidentPage = () => {
     };
 
     const handleSendReport = async () => {
-        if (!reportRecipient) return;
+        const isEmailMode = reportMode === "email";
+        if (isEmailMode && !reportEmailInput.trim()) return;
+        if (!isEmailMode && !reportRecipient) return;
+
         setSendingReport(true);
+        setReportError(null);
         try {
+            const body = isEmailMode
+                ? { recipient_email: reportEmailInput.trim() }
+                : { recipient_id: reportRecipient };
+
             const res = await fetch(`http://localhost:3000/incidents/${id}/send-report`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${localStorage.getItem("token")}`,
                 },
-                body: JSON.stringify({ recipient_id: reportRecipient }),
+                body: JSON.stringify(body),
             });
             if (res.ok) {
                 setReportSent(true);
                 setShowReportPanel(false);
                 setReportRecipient("");
+                setReportEmailInput("");
+            } else {
+                setReportError("Something went wrong. Please try again.");
             }
         } catch {
-            // silent
+            setReportError("Something went wrong. Please try again.");
         } finally {
             setSendingReport(false);
+        }
+    };
+
+    const handleResolveIncident = async () => {
+        if (!resolveDateTime || !resolveMessage.trim()) return;
+        setResolvingIncident(true);
+        setResolveError(null);
+        try {
+            const res = await fetch(`http://localhost:3000/incidents/${id}/resolve`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({ end_time: new Date(resolveDateTime).toISOString(), message: resolveMessage.trim() }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setIncident(prev => prev ? {
+                    ...prev,
+                    end_time: data.end_time,
+                    status: 0,
+                    alarms: prev.alarms.map(a => ({ ...a, status: 0 })),
+                } : prev);
+                setRecentMessages(prev => [
+                    ...prev.slice(-2),
+                    { id_messaje: Date.now(), id_user: user?.id ?? "", time: new Date().toISOString(), message: resolveMessage.trim() },
+                ]);
+                setShowResolvePanel(false);
+                setResolveDateTime("");
+                setResolveMessage("");
+            } else {
+                setResolveError("Something went wrong. Please try again.");
+            }
+        } catch {
+            setResolveError("Something went wrong. Please try again.");
+        } finally {
+            setResolvingIncident(false);
         }
     };
 
@@ -440,6 +498,59 @@ const IncidentPage = () => {
                                 </button>
                             )}
 
+                            {!incident.end_time && (user?.role === "admin" || incident.assigned_to === user?.id) && (
+                                !showResolvePanel ? (
+                                    <button
+                                        onClick={() => {
+                                            const now = new Date();
+                                            const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+                                                .toISOString()
+                                                .slice(0, 16);
+                                            setResolveDateTime(local);
+                                            setShowResolvePanel(true);
+                                            setResolveError(null);
+                                        }}
+                                        className="w-full py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 text-green-400 hover:text-green-300 text-sm rounded-lg transition-colors"
+                                    >
+                                        Mark as Resolved
+                                    </button>
+                                ) : (
+                                    <div className="flex flex-col gap-2 border border-white/10 rounded-xl p-3">
+                                        <p className="text-white/50 text-xs">Set end date &amp; time</p>
+                                        <input
+                                            type="datetime-local"
+                                            value={resolveDateTime}
+                                            onChange={(e) => setResolveDateTime(e.target.value)}
+                                            className="w-full text-sm border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-white/50 bg-[#1a1030] text-white [color-scheme:dark]"
+                                        />
+                                        <textarea
+                                            value={resolveMessage}
+                                            onChange={(e) => setResolveMessage(e.target.value)}
+                                            placeholder="Completion message (required)..."
+                                            className="w-full bg-white/5 text-white text-sm border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-white/50 resize-none h-20 placeholder:text-white/30"
+                                        />
+                                        {resolveError && (
+                                            <p className="text-red-400 text-xs">{resolveError}</p>
+                                        )}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={handleResolveIncident}
+                                                disabled={resolvingIncident || !resolveDateTime || !resolveMessage.trim()}
+                                                className="flex-1 py-2 bg-green-500/20 text-green-400 text-xs font-medium rounded-lg hover:bg-green-500/30 transition-colors disabled:opacity-40"
+                                            >
+                                                {resolvingIncident ? "Saving..." : "Confirm"}
+                                            </button>
+                                            <button
+                                                onClick={() => { setShowResolvePanel(false); setResolveDateTime(""); setResolveMessage(""); setResolveError(null); }}
+                                                className="flex-1 py-2 bg-white/5 text-white/70 text-xs rounded-lg hover:bg-white/10 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
+                            )}
+
                             {!showReportPanel ? (
                                 <button
                                     onClick={handleOpenReport}
@@ -449,27 +560,58 @@ const IncidentPage = () => {
                                 </button>
                             ) : (
                                 <div className="flex flex-col gap-2">
-                                    <select
-                                        value={reportRecipient}
-                                        onChange={(e) => setReportRecipient(e.target.value)}
-                                        className="w-full text-sm border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-white/50"
-                                        style={{ backgroundColor: "#1a1030", color: "white" }}
-                                    >
-                                        <option value="" disabled style={{ backgroundColor: "#1a1030", color: "#6b7280" }}>Select recipient...</option>
-                                        {users.map(u => (
-                                            <option key={u.id} value={u.id} style={{ backgroundColor: "#1a1030", color: "white" }}>{u.email}</option>
-                                        ))}
-                                    </select>
+                                    {/* Mode toggle */}
+                                    <div className="flex rounded-lg overflow-hidden border border-white/10 text-xs">
+                                        <button
+                                            onClick={() => setReportMode("user")}
+                                            className={`flex-1 py-1.5 transition-colors ${reportMode === "user" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
+                                        >
+                                            Select user
+                                        </button>
+                                        <button
+                                            onClick={() => setReportMode("email")}
+                                            className={`flex-1 py-1.5 transition-colors ${reportMode === "email" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
+                                        >
+                                            Custom email
+                                        </button>
+                                    </div>
+
+                                    {reportMode === "user" ? (
+                                        <select
+                                            value={reportRecipient}
+                                            onChange={(e) => setReportRecipient(e.target.value)}
+                                            className="w-full text-sm border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-white/50"
+                                            style={{ backgroundColor: "#1a1030", color: "white" }}
+                                        >
+                                            <option value="" disabled style={{ backgroundColor: "#1a1030", color: "#6b7280" }}>Select recipient...</option>
+                                            {users.map(u => (
+                                                <option key={u.id} value={u.id} style={{ backgroundColor: "#1a1030", color: "white" }}>{u.email}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="email"
+                                            value={reportEmailInput}
+                                            onChange={(e) => setReportEmailInput(e.target.value)}
+                                            placeholder="Enter email address..."
+                                            className="w-full text-sm border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-white/50 bg-[#1a1030] text-white placeholder:text-white/30"
+                                        />
+                                    )}
+
+                                    {reportError && (
+                                        <p className="text-red-400 text-xs">{reportError}</p>
+                                    )}
+
                                     <div className="flex gap-2">
                                         <button
                                             onClick={handleSendReport}
-                                            disabled={sendingReport || !reportRecipient}
+                                            disabled={sendingReport || (reportMode === "user" ? !reportRecipient : !reportEmailInput.trim())}
                                             className="flex-1 py-2 bg-white text-gray-900 text-xs font-medium rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40"
                                         >
                                             {sendingReport ? "Sending..." : "Send"}
                                         </button>
                                         <button
-                                            onClick={() => { setShowReportPanel(false); setReportRecipient(""); }}
+                                            onClick={() => { setShowReportPanel(false); setReportRecipient(""); setReportEmailInput(""); setReportError(null); }}
                                             className="flex-1 py-2 bg-white/5 text-white/70 text-xs rounded-lg hover:bg-white/10 transition-colors"
                                         >
                                             Cancel

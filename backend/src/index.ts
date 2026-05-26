@@ -499,17 +499,23 @@ app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Respon
 
 app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { recipient_id } = req.body;
+    const { recipient_id, recipient_email } = req.body;
 
-    if (!recipient_id) {
-        res.status(400).json({ message: "recipient_id is required" });
+    if (!recipient_id && !recipient_email) {
+        res.status(400).json({ message: "recipient_id or recipient_email is required" });
         return;
     }
 
-    const { data: recipientAuth, error: recipientError } = await supabase.auth.admin.getUserById(recipient_id);
-    if (recipientError || !recipientAuth?.user?.email) {
-        res.status(404).json({ message: "Recipient not found" });
-        return;
+    let recipientEmail: string;
+    if (recipient_email) {
+        recipientEmail = recipient_email;
+    } else {
+        const { data: recipientAuth, error: recipientError } = await supabase.auth.admin.getUserById(recipient_id);
+        if (recipientError || !recipientAuth?.user?.email) {
+            res.status(404).json({ message: "Recipient not found" });
+            return;
+        }
+        recipientEmail = recipientAuth.user.email;
     }
 
     const { incident, alarms, site } = await getIncidentEmailData(id as string);
@@ -584,11 +590,76 @@ app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Re
 </div>`;
 
     try {
-        await sendHtmlEmail(recipientAuth.user.email, `[AlarmUP] Incident Report — INC${id}`, html);
+        await sendHtmlEmail(recipientEmail, `[AlarmUP] Incident Report — INC${id}`, html);
         res.json({ message: "Report sent" });
     } catch (err) {
         res.status(500).json({ message: "Failed to send email" });
     }
+});
+
+app.patch("/incidents/:id/resolve", requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { end_time, message } = req.body;
+
+    if (!end_time || !message?.trim()) {
+        res.status(400).json({ message: "end_time and message are required" });
+        return;
+    }
+
+    const { data: current, error: fetchError } = await supabase
+        .from("incidents")
+        .select("end_time, status, assigned_to")
+        .eq("incident_id", id)
+        .single();
+
+    if (fetchError || !current) {
+        res.status(404).json({ message: "Incident not found" });
+        return;
+    }
+
+    if (current.end_time || current.status === 0) {
+        res.status(409).json({ message: "Incident is already resolved" });
+        return;
+    }
+
+    const isAdmin = req.user!.role === "admin";
+    const isAssigned = current.assigned_to === req.user!.id;
+    if (!isAdmin && !isAssigned) {
+        res.status(403).json({ message: "Only the assigned user or an admin can resolve this incident" });
+        return;
+    }
+
+    const { data, error } = await supabase
+        .from("incidents")
+        .update({ end_time, status: 0 })
+        .eq("incident_id", id)
+        .select()
+        .single();
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    await supabase
+        .from("messages")
+        .insert({ id_incident: parseInt(id as string), id_user: req.user!.id, time: new Date().toISOString(), message: message.trim() });
+
+    // Resolve all alarms linked to this incident
+    const { data: linkedAlarms } = await supabase
+        .from("incident_alarms")
+        .select("alarm_id")
+        .eq("incident_id", id);
+
+    const alarmIds = linkedAlarms?.map((r: any) => r.alarm_id) ?? [];
+    if (alarmIds.length > 0) {
+        await supabase
+            .from("alarms")
+            .update({ status: 0 })
+            .in("alarm_id", alarmIds);
+    }
+
+    res.json(data);
 });
 
 app.get("/incidents/:id", async (req: Request, res: Response) => {
