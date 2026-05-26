@@ -10,6 +10,7 @@ import createDashboardRouter from "./routes/dashboard";
 import createMapRouter from "./routes/map";
 import createStatisticsRouter from "./routes/statistics";
 import { requireAdmin, requireAuth } from "./middleware/auth";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -295,10 +296,19 @@ app.get("/sites", requireAuth, async (req: Request, res: Response) => {
 
 
 // GET toate alarmele
-app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
+app.get("/alarms", async (req: Request, res: Response) => {
     const { data, error } = await supabase
         .from("alarms")
-        .select("alarm_id, status, start_time, resolved_time, type, tehnologie, site")
+        .select(`
+            alarm_id,
+            status,
+            start_time,
+            resolved_time,
+            tehnologie,
+            type:alarm_types(reason),
+            site:site(city, address)
+        `)
+        .is("resolved_time", null)
 
     if (error) {
         res.status(500).json({ message: error.message })
@@ -311,26 +321,51 @@ app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
 
 
 // GET toate incidentele
-app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
+app.get("/incidents", async (req: Request, res: Response) => {
     const { status } = req.query;
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+        res.status(401).json({ message: "No token provided" });
+        return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData.user) {
+        res.status(401).json({ message: "Invalid token" });
+        return;
+    }
+
+    const { data: roleData } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userData.user.id)
+        .single();
+
+    const isAdmin = roleData?.role === "admin";
 
     let query = supabase
         .from("incidents")
         .select("incident_id, status, start_time, end_time, priority, assigned_to, messages")
 
     if (status !== undefined) {
-        query = query.eq("status", Number(status))
+        query = query.eq("status", Number(status));
+    }
+
+    // non-admin users only see their own incidents
+    if (!isAdmin) {
+        query = query.eq("assigned_to", userData.user.id);
     }
 
     const { data, error } = await query;
 
     if (error) {
-        res.status(500).json({ message: error.message })
-        return
+        res.status(500).json({ message: error.message });
+        return;
     }
 
-    res.json(data)
-})
+    res.json(data);
+});
 
 //incidente active
 
@@ -380,6 +415,69 @@ app.get("/users", requireAuth, async (req: Request, res: Response) => {
 
     res.json(data.users.map(u => ({ id: u.id, email: u.email })));
 });
+
+app.post("/users/create-by-admin", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const {email} = req.body;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        res.status(400).json({message: "Email invalid."});
+        return;
+    }
+
+    // Generare parolă aleatorie (ESM-safe)
+    const charset = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%";
+    const plainPassword = Array.from(crypto.randomBytes(12))
+        .map((b: number) => charset[b % charset.length])
+        .join("");
+
+    const {data, error} = await supabase.auth.admin.createUser({
+        email,
+        password: plainPassword,
+        email_confirm: true,
+    });
+
+    if (error) {
+        const status = error.message.toLowerCase().includes("already") ? 409 : 400;
+        res.status(status).json({message: error.message});
+        return;
+    }
+
+    const siteName = process.env.SITE_NAME || "AlarmUP";
+    const siteUrl = process.env.SITE_URL || "https://example.com";
+
+    try {
+        await sendHtmlEmail(email, `Contul tău pe ${siteName} a fost creat`, `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:480px;margin:auto;border-radius:12px;">
+    <h2 style="color:#fff;margin-bottom:4px;">Bun venit pe ${siteName}!</h2>
+        <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
+        Tocmai ți-a fost creat un cont pe
+        <a href="${siteUrl}" style="color:#a78bfa;">${siteName}</a>.
+            Folosește credențialele de mai jos pentru a te autentifica.
+         </p>
+    <div style="background:#1a1030;border:1px solid #2d1f4e;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
+           <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Username (email)</p>
+         <p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#e2e8f0;">${email}</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Parolă generată automat</p>
+        <p style="margin:0;font-size:20px;font-weight:700;letter-spacing:3px;color:#a78bfa;font-family:monospace;">${plainPassword}</p>
+    </div>
+         <p style="color:#f87171;font-size:12px;margin:0 0 24px;">
+     Te rugăm să îți schimbi parola imediat după prima autentificare.
+            </p>
+            <a href="${siteUrl}/login"
+                style="display:inline-block;background:#a78bfa;color:#0f0a1e;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">
+                 Autentifică-te acum →
+            </a>
+        <p style="margin:24px 0 0;font-size:11px;color:#4b5563;">AlarmUP · Cont creat de un administrator</p>
+      </div>`);
+    } catch (emailErr) {
+        console.error("Failed to send welcome email:", emailErr);
+        res.status(201).json({message: "Cont creat, dar emailul nu a putut fi trimis."});
+        return;
+    }
+
+    res.status(201).json({message: "Cont creat și email trimis cu succes."});
+});
+
 
 app.get("/users/:id", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params as { id: string };
