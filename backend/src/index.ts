@@ -633,7 +633,51 @@ app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => 
         .maybeSingle();
 
     if (existing) {
-        res.status(409).json({ message: "You already have a pending request" });
+        res.status(409).json({ message: "pending" });
+        return;
+    }
+
+    // Resolve admin emails before touching the DB
+    let adminEmails: string[] = [];
+    try {
+        const { data: adminProfiles } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("role", "admin");
+
+        const { data: allUsers } = await supabase.auth.admin.listUsers();
+        const adminIds = new Set(adminProfiles?.map((p: any) => p.id) ?? []);
+        adminEmails = (allUsers?.users ?? [])
+            .filter(u => adminIds.has(u.id))
+            .map(u => u.email)
+            .filter(Boolean) as string[];
+
+        // Fallback: if no admins exist yet, notify the system mailbox
+        if (adminEmails.length === 0 && process.env.SMTP_USER) {
+            adminEmails = [process.env.SMTP_USER];
+        }
+    } catch {
+        res.status(500).json({ message: "Something went wrong. Please try again later." });
+        return;
+    }
+
+    const { data: requesterAuth } = await supabase.auth.admin.getUserById(userId);
+    const requesterEmail = requesterAuth?.user?.email ?? userId;
+
+    // Send email BEFORE inserting — keeps the operation atomic
+    try {
+        for (const email of adminEmails) {
+            await sendHtmlEmail(email, "[AlarmUP] New admin access request", `
+<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
+  <h2 style="color:#fff;margin-bottom:4px;">New Admin Access Request</h2>
+  <p style="color:#e2e8f0;margin-top:0;">A user has requested elevated admin access on AlarmUP.</p>
+  <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${requesterEmail}</p>
+  <p style="color:#94a3b8;font-size:13px;margin-top:8px;">Admin privileges allow the user to manage incidents, assign responders, approve or reject access requests, and send reports.</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:24px;">Log in to AlarmUP to approve or reject this request.</p>
+</div>`);
+        }
+    } catch {
+        res.status(500).json({ message: "Something went wrong. Please try again later." });
         return;
     }
 
@@ -644,45 +688,11 @@ app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => 
         .single();
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ message: "Something went wrong. Please try again later." });
         return;
     }
 
     res.json(data);
-
-    // notify all admins
-    (async () => {
-        try {
-            const { data: adminProfiles } = await supabase
-                .from("profiles")
-                .select("id")
-                .eq("role", "admin");
-
-            const { data: allUsers } = await supabase.auth.admin.listUsers();
-
-            const adminIds = new Set(adminProfiles?.map((p: any) => p.id) ?? []);
-            const adminEmails = allUsers?.users
-                .filter(u => adminIds.has(u.id))
-                .map(u => u.email)
-                .filter(Boolean) as string[];
-
-            const { data: requesterAuth } = await supabase.auth.admin.getUserById(userId);
-            const requesterEmail = requesterAuth?.user?.email ?? userId;
-
-            for (const email of adminEmails) {
-                await sendHtmlEmail(email, "[AlarmUP] New admin access request", `
-<div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
-  <h2 style="color:#fff;margin-bottom:4px;">New Admin Access Request</h2>
-  <p style="color:#6b7280;margin-top:0;">A user has requested admin access on AlarmUP.</p>
-  <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${requesterEmail}</p>
-  <p style="color:#4b5563;font-size:12px;margin-top:24px;">Log in to AlarmUP to approve or reject this request.</p>
-</div>`);
-
-            }
-        } catch (err) {
-            console.error("Failed to notify admins:", err);
-        }
-    })();
 });
 
 app.get("/admin-requests/my", requireAuth, async (req: Request, res: Response) => {
@@ -757,8 +767,8 @@ app.patch("/admin-requests/:id/approve", requireAuth, requireAdmin, async (req: 
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#4ade80;margin-bottom:4px;">Request Approved</h2>
   <p style="color:#e2e8f0;">Your request for admin access on AlarmUP has been <strong style="color:#4ade80;">approved</strong>.</p>
-  <p style="color:#6b7280;font-size:13px;">Log in again to activate your new permissions.</p>
-  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · Automated notification</p>
+  <p style="color:#e2e8f0;font-size:13px;">Log in again to activate your new permissions.</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:24px;">AlarmUP · Automated notification</p>
 </div>`);
         } catch (err) {
             console.error("Failed to send approval email:", err);
@@ -794,7 +804,7 @@ app.patch("/admin-requests/:id/reject", requireAuth, requireAdmin, async (req: R
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#f87171;margin-bottom:4px;">Request Rejected</h2>
   <p style="color:#e2e8f0;">Your request for admin access on AlarmUP has been <strong style="color:#f87171;">rejected</strong>.</p>
-  <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · Automated notification</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:24px;">AlarmUP · Automated notification</p>
 </div>`);
         } catch (err) {
             console.error("Failed to send rejection email:", err);
