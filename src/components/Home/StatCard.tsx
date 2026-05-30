@@ -2,7 +2,7 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface StatCardProps {
     label: string;
-    value: string;
+    value: React.ReactNode;
     change: string;
     up: boolean;
     showChange?: boolean;
