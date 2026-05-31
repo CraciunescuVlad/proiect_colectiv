@@ -59,7 +59,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
             query = query.in("incident_id", incidentFilter);
         }
 
-        const { data, error } = await fetchAll<{ start_time: string }>((rangeFrom, rangeTo) =>query.order("incident_id", { ascending: true }).range(rangeFrom, rangeTo));
+        const { data, error } = await query;
 
         if (error || !data) {
             res.status(500).json({ message: error?.message ?? "No data" });
@@ -118,7 +118,7 @@ const createIncidentsRouter = (supabase: SupabaseClient) => {
             query = query.in("incident_id", incidentFilter);
         }
 
-        const { data, error } = await fetchAll<{ start_time: string; priority: string }>((rangeFrom, rangeTo) =>query.order("incident_id", { ascending: true }).range(rangeFrom, rangeTo));
+        const { data, error } = await query;
 
         if (error || !data) {
             res.status(500).json({ message: error?.message ?? "No data" });
