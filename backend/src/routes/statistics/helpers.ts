@@ -158,51 +158,52 @@ export const parseGranularity = (raw: any): Granularity => {
 };
 
 /**
- * Returns the Monday of the ISO week containing the given date, at local midnight.
+ * Computes the week number for a given date.
+ * Week 1 runs from January 1 to the first Sunday of the year (inclusive) and can be partial.
+ * Subsequent weeks always run Monday to Sunday.
  *
  * @param d The reference date
- * @return The start of that week
+ * @return The 1-based week number within that date's calendar year
  */
-const startOfWeek = (d: Date): Date => {
-    const out = new Date(d);
-    out.setHours(0, 0, 0, 0);
-    const day = out.getDay();
-    const diff = (day === 0 ? -6 : 1 - day);
-    out.setDate(out.getDate() + diff);
-    return out;
-};
+const getWeekNumber = (d: Date): number => {
+    const year = d.getFullYear();
+    const jan1 = new Date(year, 0, 1);
+    jan1.setHours(0, 0, 0, 0);
 
-/**
- * Returns the first day of the month containing the given date, at local midnight.
- *
- * @param d The reference date
- * @return The start of that month
- */
-const startOfMonth = (d: Date): Date => {
-    const out = new Date(d.getFullYear(), d.getMonth(), 1);
-    out.setHours(0, 0, 0, 0);
-    return out;
-};
+    // Find the first Sunday of the year; if Jan 1 is itself a Sunday, that is the first Sunday
+    const jan1Day = jan1.getDay();
+    const firstSunday = new Date(jan1);
+    if (jan1Day !== 0) {
+        firstSunday.setDate(jan1.getDate() + (7 - jan1Day));
+    }
 
-/**
- * Formats a date as "DD MMM" in Romanian locale, e.g. "19 apr".
- *
- * @param d The date to format
- * @return The formatted short label
- */
-const formatShort = (d: Date): string => {
-    return d.toLocaleDateString("ro-RO", { day: "2-digit", month: "short" });
+    const target = new Date(d);
+    target.setHours(0, 0, 0, 0);
+
+    if (target.getTime() <= firstSunday.getTime()) {
+        return 1;
+    }
+
+    // From Week 2 onward, every week starts on a Monday
+    const firstMonday = new Date(firstSunday);
+    firstMonday.setDate(firstSunday.getDate() + 1);
+
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysSinceFirstMonday = Math.floor((target.getTime() - firstMonday.getTime()) / msPerDay);
+    return 2 + Math.floor(daysSinceFirstMonday / 7);
 };
 
 /**
  * Computes the bucket label for a given date under the requested granularity.
- * For week and month buckets, the label is clamped to the requested range, so the
- * first and last buckets show their actual partial span (e.g. "19 apr - 30 apr").
+ * Day buckets use a "DD/MM" label. Week buckets use "Week N" and month buckets use "Month N",
+ * where N is computed relative to the date's calendar year (Week 1 starts on January 1).
+ * When the requested range spans multiple calendar years, the year is appended to keep
+ * labels unique across years (e.g. "Week 1 2024" vs "Week 1 2025").
  *
  * @param d The date being bucketed
  * @param granularity The bucket size
- * @param rangeStart The start of the requested range (used to clamp partial buckets)
- * @param rangeEnd The end of the requested range (used to clamp partial buckets)
+ * @param rangeStart The start of the requested range (used to decide whether to suffix the year)
+ * @param rangeEnd The end of the requested range (used to decide whether to suffix the year)
  * @return The label that should be used as the x-axis key for that bucket
  */
 export const bucketLabel = (
@@ -215,27 +216,14 @@ export const bucketLabel = (
         return formatDayLabel(d);
     }
 
-    const rangeStartDay = new Date(rangeStart);
-    rangeStartDay.setHours(0, 0, 0, 0);
-    const rangeEndDay = new Date(rangeEnd);
-    rangeEndDay.setHours(0, 0, 0, 0);
+    const crossesYears = rangeStart.getFullYear() !== rangeEnd.getFullYear();
+    const yearSuffix = crossesYears ? ` ${d.getFullYear()}` : "";
 
-    let bucketStart: Date;
-    let bucketEnd: Date;
     if (granularity === "week") {
-        bucketStart = startOfWeek(d);
-        bucketEnd = new Date(bucketStart);
-        bucketEnd.setDate(bucketEnd.getDate() + 6);
-    } else {
-        bucketStart = startOfMonth(d);
-        bucketEnd = new Date(bucketStart.getFullYear(), bucketStart.getMonth() + 1, 0);
-        bucketEnd.setHours(0, 0, 0, 0);
+        return `Week ${getWeekNumber(d)}${yearSuffix}`;
     }
 
-    const effectiveStart = bucketStart < rangeStartDay ? rangeStartDay : bucketStart;
-    const effectiveEnd = bucketEnd > rangeEndDay ? rangeEndDay : bucketEnd;
-
-    return `${formatShort(effectiveStart)} - ${formatShort(effectiveEnd)}`;
+    return `Month ${d.getMonth() + 1}${yearSuffix}`;
 };
 
 /**
