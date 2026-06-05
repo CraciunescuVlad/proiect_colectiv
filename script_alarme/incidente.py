@@ -117,7 +117,9 @@ def resolve_old_incidents():
             if a:
                 site_per_incident[inc_id] = a["site"]
                 break
-
+    
+    viewers = supabase.table("profiles").select("id").eq("role", "viewer").execute().data
+    viewer_ids = [row["id"] for row in viewers]
     for incident in incidents_to_resolve:
         incident_id = incident["incident_id"]
         site_id = site_per_incident.get(incident_id)
@@ -127,11 +129,13 @@ def resolve_old_incidents():
         latest_resolved = get_latest_resolved_on_site(site_id)
         active_alarms = [a for a in incident_alarms_data if a["status"] == 1]
 
+        assigned_to=random.choice(viewer_ids)
         if not active_alarms:
             end_time = incident_start + timedelta(seconds=random.randint(10, 120))
             supabase.table("incidents").update({
                 "status": 0,
-                "end_time": end_time.isoformat()
+                "end_time": end_time.isoformat(),
+                "assigned_to": assigned_to
             }).eq("incident_id", incident_id).execute()
             continue
 
@@ -170,7 +174,8 @@ def resolve_old_incidents():
 
         supabase.table("incidents").update({
             "status": 0,
-            "end_time": end_time.isoformat()
+            "end_time": end_time.isoformat(),
+            "assigned_to": assigned_to
         }).eq("incident_id", incident_id).execute()
 
     print(f"{n_to_resolve} incidente rezolvate.")
