@@ -26,7 +26,6 @@ const transporter = nodemailer.createTransport({
 const createUsersRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
-    // ─── POST /users/create-by-admin ─────────────────────────────────────────
     router.post("/create-by-admin", requireAuth, async (req: Request, res: Response) => {
         // Verifica rolul de admin
         const authUser = (req as any).user;
@@ -47,7 +46,7 @@ const createUsersRouter = (supabase: SupabaseClient) => {
             const { data, error } = await supabase.auth.admin.createUser({
                 email,
                 password: plainPassword,
-                email_confirm: true, // contul e activ imediat, fără verificare email
+                email_confirm: true, // contul e activ imediat, fara verificare email
             });
 
             if (error) {
@@ -68,28 +67,22 @@ const createUsersRouter = (supabase: SupabaseClient) => {
                 subject: `Contul tău pe ${siteName} a fost creat`,
                 html: `
                     <div style="font-family: sans-serif; max-width: 480px; margin: auto; padding: 32px; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb;">
-                        <h2 style="margin: 0 0 16px; font-size: 20px; color: #111827;">Bun venit pe ${siteName}!</h2>
-                        <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-                            Tocmai ți-a fost creat un cont pe
-                            <a href="${siteUrl}" style="color: #4f46e5;">${siteName}</a>.
-                            Folosește credențialele de mai jos pentru a te autentifica.
-                        </p>
-                        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
-                            <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">Username (email)</p>
-                            <p style="margin: 0 0 16px; font-size: 15px; font-weight: 600; color: #111827;">${email}</p>
-                            <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">Parolă generată automat</p>
-                            <p style="margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 2px; color: #4f46e5; font-family: monospace;">${plainPassword}</p>
-                        </div>
-                        <p style="color: #ef4444; font-size: 12px; margin: 0 0 24px;">
-                            ⚠️ Te rugăm să îți schimbi parola imediat după prima autentificare.
-                        </p>
-                        <a href="${siteUrl}/login" style="display: inline-block; background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500;">
-                            Autentifică-te acum →
-                        </a>
-                        <p style="margin: 24px 0 0; font-size: 11px; color: #9ca3af;">
-                            Dacă nu ai solicitat acest cont, poți ignora acest email.
-                        </p>
-                    </div>
+    <h2 style="margin: 0 0 16px; font-size: 20px; color: #111827;">Welcome to ${siteName}!</h2>
+    <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
+        An account has been created for you on
+        <a href="${siteUrl}" style="color: #4f46e5;">${siteName}</a>.
+        Use the credentials below to sign in.
+    </p>
+    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+        <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">Username (email)</p>
+        <p style="margin: 0 0 16px; font-size: 15px; font-weight: 600; color: #111827;">${email}</p>
+        <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">Auto-generated password</p>
+        <p style="margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 2px; color: #4f46e5; font-family: monospace;">${plainPassword}</p>
+    </div>
+    <p style="color: #ef4444; font-size: 12px; margin: 0 0 24px;">
+        Please change your password immediately after your first sign in.
+    </p>
+    <a href="${siteUrl}/login" style="display: inline-block; background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight:
                 `,
             });
 
@@ -97,7 +90,7 @@ const createUsersRouter = (supabase: SupabaseClient) => {
 
         } catch (err: any) {
             console.error("[create-by-admin]", err);
-            return res.status(500).json({ message: "Eroare internă de server." });
+            return res.status(500).json({ message: "Server error." });
         }
     });
 
