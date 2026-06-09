@@ -29,6 +29,7 @@ const AdminRequestsPage = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [actionId, setActionId] = useState<number | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     // --- Create User state ---
     const [createEmail, setCreateEmail] = useState("");
@@ -65,7 +66,7 @@ const AdminRequestsPage = () => {
 
     const handleRequest = async () => {
         setSubmitting(true);
-
+        setError(null);
         try {
             const res = await fetch("http://localhost:3000/admin-requests", {
                 method: "POST",
@@ -73,8 +74,20 @@ const AdminRequestsPage = () => {
             });
 
             const data = await res.json();
-
-            if (res.ok) setMyRequest(data);
+            if (res.ok) {
+                setMyRequest(data);
+            } else if (res.status === 409) {
+                // Already has a pending request — reload to sync state
+                const myRes = await fetch("http://localhost:3000/admin-requests/my", {
+                    headers: { Authorization: `Bearer ${token()}` },
+                });
+                const myData = await myRes.json();
+                setMyRequest(myRes.ok && myData && myData.status ? myData : null);
+            } else {
+                setError("Something went wrong. Please try again later.");
+            }
+        } catch {
+            setError("Something went wrong. Please try again later.");
         } finally {
             setSubmitting(false);
         }
@@ -414,12 +427,18 @@ const AdminRequestsPage = () => {
 
                     {myRequest === undefined ? null : myRequest === null ? (
                         <div>
-                            <p className="text-white/50 text-sm mb-4">
-                                You don't have admin access yet.
-                                Submit a request and an admin
-                                will review it.
+                            <p className="text-white/50 text-sm mb-1">
+                                Admin access unlocks the following capabilities:
                             </p>
-
+                            <ul className="text-white/40 text-xs mb-5 mt-2 space-y-1 list-disc list-inside">
+                                <li>Assign responders to active incidents</li>
+                                <li>Send and manage incident messages</li>
+                                <li>Approve or reject admin access requests</li>
+                                <li>Generate and send incident reports</li>
+                            </ul>
+                            {error && (
+                                <p className="text-red-400 text-xs mb-3">{error}</p>
+                            )}
                             <button
                                 onClick={handleRequest}
                                 disabled={submitting}
@@ -441,21 +460,25 @@ const AdminRequestsPage = () => {
                                 {statusBadge(myRequest.status)}
                             </div>
 
-                            <p className="text-white/30 text-xs">
-                                Submitted on{" "}
-                                {new Date(myRequest.created_at).toLocaleString()}
-                            </p>
-
+                            {myRequest.status === "pending" && (
+                                <p className="text-white/60 text-sm">
+                                    Your application is under consideration at the moment. We will come back to you soon.
+                                </p>
+                            )}
+                            <p className="text-white/30 text-xs">Submitted on {new Date(myRequest.created_at).toLocaleString()}</p>
                             {myRequest.status === "rejected" && (
-                                <button
-                                    onClick={handleRequest}
-                                    disabled={submitting}
-                                    className="w-full py-2 mt-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                    {submitting
-                                        ? "Submitting..."
-                                        : "Submit New Request"}
-                                </button>
+                                <>
+                                    {error && (
+                                        <p className="text-red-400 text-xs">{error}</p>
+                                    )}
+                                    <button
+                                        onClick={handleRequest}
+                                        disabled={submitting}
+                                        className="w-full py-2 mt-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        {submitting ? "Submitting..." : "Submit New Request"}
+                                    </button>
+                                </>
                             )}
                         </div>
                     )}
