@@ -15,7 +15,10 @@ interface MyRequest {
     created_at: string;
 }
 
-type CreateStatus = { type: "success"; email: string } | { type: "error"; message: string } | null;
+type CreateStatus =
+    | { type: "success"; email: string }
+    | { type: "error"; message: string }
+    | null;
 
 const AdminRequestsPage = () => {
     const { user } = useUser();
@@ -56,52 +59,66 @@ const AdminRequestsPage = () => {
                 setLoading(false);
             }
         };
+
         load();
     }, [isAdmin]);
 
     const handleRequest = async () => {
         setSubmitting(true);
+
         try {
             const res = await fetch("http://localhost:3000/admin-requests", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token()}` },
             });
+
             const data = await res.json();
+
             if (res.ok) setMyRequest(data);
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleDecision = async (id: number, action: "approve" | "reject") => {
+    const handleDecision = async (
+        id: number,
+        action: "approve" | "reject"
+    ) => {
         setActionId(id);
+
         try {
             await fetch(`http://localhost:3000/admin-requests/${id}/${action}`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token()}` },
             });
-            setRequests(prev => prev.filter(r => r.id_request !== id));
+
+            setRequests(prev =>
+                prev.filter(r => r.id_request !== id)
+            );
         } finally {
             setActionId(null);
         }
     };
 
-    const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const validateEmail = (email: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
     const handleCreateUser = async () => {
         setEmailError("");
         setCreateStatus(null);
 
         if (!createEmail.trim()) {
-            setEmailError("Email-ul este obligatoriu.");
+            setEmailError("Email is required.");
             return;
         }
+
         if (!validateEmail(createEmail)) {
-            setEmailError("Introdu o adresă de email validă.");
+            setEmailError("Please enter a valid email address.");
             return;
         }
 
         setCreating(true);
+
         try {
             const res = await fetch("http://localhost:3000/users/create-by-admin", {
                 method: "POST",
@@ -109,22 +126,34 @@ const AdminRequestsPage = () => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token()}`,
                 },
-                body: JSON.stringify({ email: createEmail.trim() }),
+                body: JSON.stringify({
+                    email: createEmail.trim(),
+                }),
             });
 
             const data = await res.json();
 
             if (res.ok) {
-                setCreateStatus({ type: "success", email: createEmail.trim() });
+                setCreateStatus({
+                    type: "success",
+                    email: createEmail.trim(),
+                });
+
                 setCreateEmail("");
             } else {
                 setCreateStatus({
                     type: "error",
-                    message: data?.message || "A apărut o eroare. Încearcă din nou.",
+                    message:
+                        data?.message ||
+                        "An error occurred. Please try again.",
                 });
             }
         } catch {
-            setCreateStatus({ type: "error", message: "Eroare de rețea. Verifică conexiunea." });
+            setCreateStatus({
+                type: "error",
+                message:
+                    "Network error. Please check your internet connection.",
+            });
         } finally {
             setCreating(false);
         }
@@ -132,17 +161,36 @@ const AdminRequestsPage = () => {
 
     const statusBadge = (status: string) => {
         if (status === "approved")
-            return <span className="text-xs px-3 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">Approved</span>;
+            return (
+                <span className="text-xs px-3 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+                    Approved
+                </span>
+            );
+
         if (status === "rejected")
-            return <span className="text-xs px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">Rejected</span>;
-        return <span className="text-xs px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Pending</span>;
+            return (
+                <span className="text-xs px-3 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+                    Rejected
+                </span>
+            );
+
+        return (
+            <span className="text-xs px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                Pending
+            </span>
+        );
     };
 
     return (
         <div className="flex flex-col min-h-screen bg-[#060010] px-12 py-8">
-            <h1 className="text-white text-2xl font-semibold mb-2">Admin Access</h1>
+            <h1 className="text-white text-2xl font-semibold mb-2">
+                Admin Access
+            </h1>
+
             <p className="text-white/40 text-sm mb-8">
-                {isAdmin ? "Review and manage admin access requests." : "Request elevated access to the platform."}
+                {isAdmin
+                    ? "Review and manage admin access requests."
+                    : "Request elevated access to the platform."}
             </p>
 
             {loading ? (
@@ -150,35 +198,51 @@ const AdminRequestsPage = () => {
             ) : isAdmin ? (
                 <div className="flex flex-col gap-6 max-w-2xl">
 
-                    {/* ── CREATE USER ACCOUNT ───────────────────────────── */}
+                    {/* CREATE USER ACCOUNT */}
                     <div className="border border-white/10 rounded-2xl p-6">
-                        <h2 className="text-white font-medium text-sm mb-1">Create User Account</h2>
+                        <h2 className="text-white font-medium text-sm mb-1">
+                            Create User Account
+                        </h2>
+
                         <p className="text-white/40 text-xs mb-5">
-                            Creează un cont nou pentru o adresă de email. O parolă va fi generată automat și trimisă utilizatorului.
+                            Create a new account for an email address.
+                            A password will be automatically generated
+                            and sent to the user.
                         </p>
 
                         <div className="flex flex-col gap-3">
+
                             <div className="flex gap-3">
+
                                 <div className="flex-1 flex flex-col gap-1">
                                     <input
                                         type="email"
-                                        placeholder="email@exemplu.com"
+                                        placeholder="email@example.com"
                                         value={createEmail}
                                         onChange={e => {
                                             setCreateEmail(e.target.value);
                                             setEmailError("");
                                             setCreateStatus(null);
                                         }}
-                                        onKeyDown={e => e.key === "Enter" && handleCreateUser()}
+                                        onKeyDown={e =>
+                                            e.key === "Enter" &&
+                                            handleCreateUser()
+                                        }
                                         disabled={creating}
                                         className={`w-full bg-white/5 border ${
-                                            emailError ? "border-red-500/50" : "border-white/10"
+                                            emailError
+                                                ? "border-red-500/50"
+                                                : "border-white/10"
                                         } rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors disabled:opacity-50`}
                                     />
+
                                     {emailError && (
-                                        <p className="text-red-400 text-xs px-1">{emailError}</p>
+                                        <p className="text-red-400 text-xs px-1">
+                                            {emailError}
+                                        </p>
                                     )}
                                 </div>
+
                                 <button
                                     onClick={handleCreateUser}
                                     disabled={creating}
@@ -186,67 +250,142 @@ const AdminRequestsPage = () => {
                                 >
                                     {creating ? (
                                         <span className="flex items-center gap-2">
-                                            <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                            <svg
+                                                className="animate-spin h-3.5 w-3.5"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <circle
+                                                    className="opacity-25"
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="10"
+                                                    stroke="currentColor"
+                                                    strokeWidth="4"
+                                                />
+
+                                                <path
+                                                    className="opacity-75"
+                                                    fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8v8z"
+                                                />
                                             </svg>
-                                            Se creează...
+
+                                            Please wait...
                                         </span>
-                                    ) : "Creează cont"}
+                                    ) : (
+                                        "Create Account"
+                                    )}
                                 </button>
                             </div>
 
-                            {/* Feedback */}
+                            {/* SUCCESS */}
                             {createStatus?.type === "success" && (
                                 <div className="flex items-start gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-                                    <svg className="w-4 h-4 text-green-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    <svg
+                                        className="w-4 h-4 text-green-400 mt-0.5 shrink-0"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M5 13l4 4L19 7"
+                                        />
                                     </svg>
+
                                     <div>
-                                        <p className="text-green-400 text-sm font-medium">Cont creat cu succes</p>
+                                        <p className="text-green-400 text-sm font-medium">
+                                            Account created successfully
+                                        </p>
+
                                         <p className="text-green-400/70 text-xs mt-0.5">
-                                            Un email cu credențialele a fost trimis la <span className="font-medium text-green-400">{createStatus.email}</span>.
+                                            An email with the credentials
+                                            has been sent to{" "}
+                                            <span className="font-medium text-green-400">
+                                                {createStatus.email}
+                                            </span>.
                                         </p>
                                     </div>
                                 </div>
                             )}
 
+                            {/* ERROR */}
                             {createStatus?.type === "error" && (
                                 <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                                    <svg className="w-4 h-4 text-red-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    <svg
+                                        className="w-4 h-4 text-red-400 mt-0.5 shrink-0"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
                                     </svg>
-                                    <p className="text-red-400 text-sm">{createStatus.message}</p>
+
+                                    <p className="text-red-400 text-sm">
+                                        {createStatus.message}
+                                    </p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* ── PENDING REQUESTS ──────────────────────────────── */}
+                    {/* PENDING REQUESTS */}
                     <div className="border border-white/10 rounded-2xl p-6">
+
                         <h2 className="text-white font-medium text-sm mb-4">
-                            Pending Requests{requests.length > 0 && <span className="ml-2 text-white/30">({requests.length})</span>}
+                            Pending Requests
+
+                            {requests.length > 0 && (
+                                <span className="ml-2 text-white/30">
+                                    ({requests.length})
+                                </span>
+                            )}
                         </h2>
+
                         {requests.length === 0 ? (
-                            <p className="text-white/30 text-sm">No pending requests.</p>
+                            <p className="text-white/30 text-sm">
+                                No pending requests.
+                            </p>
                         ) : (
                             <div className="flex flex-col gap-3">
                                 {requests.map(r => (
-                                    <div key={r.id_request} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+                                    <div
+                                        key={r.id_request}
+                                        className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3"
+                                    >
                                         <div>
-                                            <p className="text-white text-sm">{r.email}</p>
-                                            <p className="text-white/30 text-xs mt-0.5">{new Date(r.created_at).toLocaleString()}</p>
+                                            <p className="text-white text-sm">
+                                                {r.email}
+                                            </p>
+
+                                            <p className="text-white/30 text-xs mt-0.5">
+                                                {new Date(r.created_at).toLocaleString()}
+                                            </p>
                                         </div>
+
                                         <div className="flex gap-2">
                                             <button
-                                                onClick={() => handleDecision(r.id_request, "approve")}
+                                                onClick={() =>
+                                                    handleDecision(r.id_request, "approve")
+                                                }
                                                 disabled={actionId === r.id_request}
                                                 className="px-4 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 text-xs rounded-lg hover:bg-green-500/20 transition-colors disabled:opacity-40"
                                             >
                                                 Approve
                                             </button>
+
                                             <button
-                                                onClick={() => handleDecision(r.id_request, "reject")}
+                                                onClick={() =>
+                                                    handleDecision(r.id_request, "reject")
+                                                }
                                                 disabled={actionId === r.id_request}
                                                 className="px-4 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 text-xs rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-40"
                                             >
@@ -261,36 +400,61 @@ const AdminRequestsPage = () => {
                 </div>
             ) : (
                 <div className="border border-white/10 rounded-2xl p-6 max-w-md">
-                    <h2 className="text-white font-medium text-sm mb-1">Your Access Level</h2>
-                    <p className="text-white/40 text-xs mb-6">Current role: <span className="text-white/70">{user?.role}</span></p>
+
+                    <h2 className="text-white font-medium text-sm mb-1">
+                        Your Access Level
+                    </h2>
+
+                    <p className="text-white/40 text-xs mb-6">
+                        Current role:{" "}
+                        <span className="text-white/70">
+                            {user?.role}
+                        </span>
+                    </p>
 
                     {myRequest === undefined ? null : myRequest === null ? (
                         <div>
                             <p className="text-white/50 text-sm mb-4">
-                                You don't have admin access yet. Submit a request and an admin will review it.
+                                You don't have admin access yet.
+                                Submit a request and an admin
+                                will review it.
                             </p>
+
                             <button
                                 onClick={handleRequest}
                                 disabled={submitting}
                                 className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors disabled:opacity-50"
                             >
-                                {submitting ? "Submitting..." : "Request Admin Access"}
+                                {submitting
+                                    ? "Submitting..."
+                                    : "Request Admin Access"}
                             </button>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-3">
+
                             <div className="flex items-center justify-between">
-                                <p className="text-white/50 text-sm">Request status</p>
+                                <p className="text-white/50 text-sm">
+                                    Request status
+                                </p>
+
                                 {statusBadge(myRequest.status)}
                             </div>
-                            <p className="text-white/30 text-xs">Submitted on {new Date(myRequest.created_at).toLocaleString()}</p>
+
+                            <p className="text-white/30 text-xs">
+                                Submitted on{" "}
+                                {new Date(myRequest.created_at).toLocaleString()}
+                            </p>
+
                             {myRequest.status === "rejected" && (
                                 <button
                                     onClick={handleRequest}
                                     disabled={submitting}
                                     className="w-full py-2 mt-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors disabled:opacity-50"
                                 >
-                                    {submitting ? "Submitting..." : "Submit New Request"}
+                                    {submitting
+                                        ? "Submitting..."
+                                        : "Submit New Request"}
                                 </button>
                             )}
                         </div>
