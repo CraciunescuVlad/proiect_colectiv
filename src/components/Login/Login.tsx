@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-
+import Radar from "../Radar/Radar";
+import RadarBlips from "../Radar/RadarBlips";
 const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -72,10 +73,18 @@ const Login = () => {
 
     const rightPanel = (
         <div className="w-[60%] flex flex-col items-center justify-center bg-[#0a0015] relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-blue-900/20" />
-            <div className="relative z-10 text-center px-12">
+            <div className="absolute inset-0">
+                <Radar color="#9f29ff" backgroundColor="#000000" />
+            </div>
+
+            <RadarBlips />
+
+            <div className="relative z-10 text-center px-12 pointer-events-none">
                 <h2 className="text-white text-4xl font-bold mb-4">AlarmUP</h2>
-                <p className="text-white/40 text-lg max-w-md">
+
+            </div>
+            <div className="absolute bottom-8 left-0 right-0 z-10 text-center px-12 pointer-events-none">
+                <p className="text-white/40 text-lg max-w-md mx-auto">
                     Monitor and track telecom incidents across Romania in real time.
                 </p>
             </div>

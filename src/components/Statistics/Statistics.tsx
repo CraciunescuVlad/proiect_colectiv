@@ -9,7 +9,7 @@ import StatCard from "../Home/StatCard";
 import useAuth from "../../hooks/useAuth";
 import useViewerKpis from "../../hooks/useViewerKpis";
 import useOverviewKpis from "../../hooks/useOverviewKpis";
-
+import Spinner from "../Spinner/Spinner";
 
 const getDefaultRange = (): DateRange => {
     const to = new Date();
@@ -124,25 +124,25 @@ const Statistics = () => {
                 <div className="flex w-full mb-8 border border-white/10 rounded-2xl">
                     <StatCard
                         label="Total Alarms"
-                        value={overviewLoading ? "..." : `${overviewKpis?.alarmsTotal.value ?? 0}`}
+                        value={overviewLoading ? <Spinner /> : `${overviewKpis?.alarmsTotal.value ?? 0}`}
                         change={overviewLoading ? "" : formatChange(overviewKpis?.alarmsTotal.changePercent ?? 0)}
                         up={(overviewKpis?.alarmsTotal.changePercent ?? 0) >= 0}
                     />
                     <StatCard
                         label="Resolved Alarms"
-                        value={overviewLoading ? "..." : `${overviewKpis?.alarmsResolved.value ?? 0}`}
+                        value={overviewLoading ? <Spinner /> : `${overviewKpis?.alarmsResolved.value ?? 0}`}
                         change={overviewLoading ? "" : formatChange(overviewKpis?.alarmsResolved.changePercent ?? 0)}
                         up={(overviewKpis?.alarmsResolved.changePercent ?? 0) >= 0}
                     />
                     <StatCard
                         label="Total Incidents"
-                        value={overviewLoading ? "..." : `${overviewKpis?.incidentsTotal.value ?? 0}`}
+                        value={overviewLoading ? <Spinner /> : `${overviewKpis?.incidentsTotal.value ?? 0}`}
                         change={overviewLoading ? "" : formatChange(overviewKpis?.incidentsTotal.changePercent ?? 0)}
                         up={(overviewKpis?.incidentsTotal.changePercent ?? 0) >= 0}
                     />
                     <StatCard
                         label="Resolved Incidents"
-                        value={overviewLoading ? "..." : `${overviewKpis?.incidentsResolved.value ?? 0}`}
+                        value={overviewLoading ? <Spinner />: `${overviewKpis?.incidentsResolved.value ?? 0}`}
                         change={overviewLoading ? "" : formatChange(overviewKpis?.incidentsResolved.changePercent ?? 0)}
                         up={(overviewKpis?.incidentsResolved.changePercent ?? 0) >= 0}
                     />

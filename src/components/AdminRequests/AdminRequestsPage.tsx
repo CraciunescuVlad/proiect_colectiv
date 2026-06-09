@@ -459,7 +459,6 @@ const AdminRequestsPage = () => {
 
                                 {statusBadge(myRequest.status)}
                             </div>
-
                             {myRequest.status === "pending" && (
                                 <p className="text-white/60 text-sm">
                                     Your application is under consideration at the moment. We will come back to you soon.
