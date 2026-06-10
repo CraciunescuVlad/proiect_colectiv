@@ -44,7 +44,9 @@ const ChangePassword = () => {
             }
 
             localStorage.removeItem("mustChangePassword");
-            window.location.href = "/home";
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            window.location.href = "/login";
         } catch {
             setError("Network error. Please try again.");
         } finally {
