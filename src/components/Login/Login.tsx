@@ -63,7 +63,12 @@ const Login = () => {
 
             localStorage.setItem("token", data.token);
             localStorage.setItem("user", JSON.stringify(data.user));
-            window.location.href = "/home";
+            if (data.mustChangePassword) {
+                localStorage.setItem("mustChangePassword", "true");
+                window.location.href = "/change-password";
+            } else {
+                window.location.href = "/home";
+            }
         } catch {
             setError("Something went wrong. Try again.");
         } finally {

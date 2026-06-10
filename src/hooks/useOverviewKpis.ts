@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authHeaders } from "../lib/apiHeaders";
 
 export type KpiMetric = {
     value: number;
@@ -48,7 +49,7 @@ const useOverviewKpis = (from?: Date, to?: Date, siteIds?: string[]) => {
                     url += `?${qs}`;
                 }
 
-                const response = await fetch(url);
+                const response = await fetch(url, { headers: authHeaders() });
 
                 if (!response.ok) {
                     throw new Error("Failed to fetch KPIs");

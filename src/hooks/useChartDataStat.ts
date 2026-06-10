@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authHeaders } from "../lib/apiHeaders";
 
 type ChartPoint = {
     date: string;
@@ -51,7 +52,7 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteIds?: string
                     url += `?${qs}`;
                 }
 
-                const response = await fetch(url);
+                const response = await fetch(url, { headers: authHeaders() });
 
                 if (!response.ok) {
                     throw new Error("Failed to fetch chart data");

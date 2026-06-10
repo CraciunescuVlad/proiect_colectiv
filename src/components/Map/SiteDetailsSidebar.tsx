@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authHeaders } from "../../lib/apiHeaders";
 import { X, ChevronDown, ChevronUp } from "lucide-react";
 import type { SelectedSite } from "./MapPage";
 import type { Alarm } from "./MapPage";
@@ -40,7 +41,7 @@ const AlarmCard = ({ alarm }: { alarm: Alarm }) => {
         if (!expanded && !alarmType) {
             setLoading(true);
             try {
-                const res = await fetch(`http://localhost:3000/map/alarm-type/${alarm.type}`);
+                const res = await fetch(`http://localhost:3000/map/alarm-type/${alarm.type}`, { headers: authHeaders() });
                 const data = await res.json();
                 setAlarmType(data);
             } catch (err) {
@@ -167,7 +168,7 @@ const SiteDetailsSidebar = ({
         const fetchAlarms = async () => {
             setLoadingAlarms(true);
             try {
-                const res = await fetch(`http://localhost:3000/map/sites/${site.id}/alarms`);
+                const res = await fetch(`http://localhost:3000/map/sites/${site.id}/alarms`, { headers: authHeaders() });
                 const data = await res.json();
                 setAlarms(Array.isArray(data) ? data : []);
             } catch (err) {
