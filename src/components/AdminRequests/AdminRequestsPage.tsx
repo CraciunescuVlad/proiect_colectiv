@@ -38,6 +38,8 @@ const AdminRequestsPage = () => {
     const [emailError, setEmailError] = useState("");
     const [createAsAdmin, setCreateAsAdmin] = useState(false);
 
+    const [lockedUsers, setLockedUsers] = useState<{ id: string; email: string }[]>([]);
+    const [unlockingId, setUnlockingId] = useState<string | null>(null);
     const token = () => localStorage.getItem("token");
 
     useEffect(() => {
