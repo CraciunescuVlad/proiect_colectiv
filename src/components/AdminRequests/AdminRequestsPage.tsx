@@ -31,6 +31,9 @@ const AdminRequestsPage = () => {
     const [actionId, setActionId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    const [lockedUsers, setLockedUsers] = useState<{ id: string; email: string }[]>([]);
+    const [unlockingId, setUnlockingId] = useState<string | null>(null);
+
     // --- Create User state ---
     const [createEmail, setCreateEmail] = useState("");
     const [creating, setCreating] = useState(false);
@@ -44,11 +47,18 @@ const AdminRequestsPage = () => {
             setLoading(true);
             try {
                 if (isAdmin) {
-                    const res = await fetch("http://localhost:3000/admin-requests", {
-                        headers: { Authorization: `Bearer ${token()}` },
-                    });
-                    const data = await res.json();
+                    const [reqRes, lockedRes] = await Promise.all([
+                        fetch("http://localhost:3000/admin-requests", {
+                            headers: { Authorization: `Bearer ${token()}` },
+                        }),
+                        fetch("http://localhost:3000/admin/locked-users", {
+                            headers: { Authorization: `Bearer ${token()}` },
+                        }),
+                    ]);
+                    const data = await reqRes.json();
+                    const locked = await lockedRes.json();
                     setRequests(Array.isArray(data) ? data : []);
+                    setLockedUsers(Array.isArray(locked) ? locked : []);
                 } else {
                     const res = await fetch("http://localhost:3000/admin-requests/my", {
                         headers: { Authorization: `Bearer ${token()}` },
@@ -110,6 +120,21 @@ const AdminRequestsPage = () => {
             );
         } finally {
             setActionId(null);
+        }
+    };
+
+    const handleUnlock = async (userId: string) => {
+        setUnlockingId(userId);
+        try {
+            const res = await fetch(`http://localhost:3000/admin/users/${userId}/unlock`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${token()}` },
+            });
+            if (res.ok) {
+                setLockedUsers(prev => prev.filter(u => u.id !== userId));
+            }
+        } finally {
+            setUnlockingId(null);
         }
     };
 
@@ -405,6 +430,44 @@ const AdminRequestsPage = () => {
                                                 Reject
                                             </button>
                                         </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* LOCKED ACCOUNTS */}
+                    <div className="border border-white/10 rounded-2xl p-6">
+                        <h2 className="text-white font-medium text-sm mb-1">
+                            Locked Accounts
+                            {lockedUsers.length > 0 && (
+                                <span className="ml-2 text-white/30">({lockedUsers.length})</span>
+                            )}
+                        </h2>
+                        <p className="text-white/40 text-xs mb-4">
+                            Accounts locked after too many failed login attempts. Unlocking sends a password reset email to the user.
+                        </p>
+
+                        {lockedUsers.length === 0 ? (
+                            <p className="text-white/30 text-sm">No locked accounts.</p>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                {lockedUsers.map(u => (
+                                    <div
+                                        key={u.id}
+                                        className="flex items-center justify-between bg-red-500/5 border border-red-500/15 rounded-xl px-4 py-3"
+                                    >
+                                        <div>
+                                            <p className="text-white text-sm">{u.email}</p>
+                                            <p className="text-red-400/60 text-xs mt-0.5">Locked</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleUnlock(u.id)}
+                                            disabled={unlockingId === u.id}
+                                            className="px-4 py-1.5 bg-white/5 text-white/70 border border-white/10 text-xs rounded-lg hover:bg-white/10 hover:text-white transition-colors disabled:opacity-40"
+                                        >
+                                            {unlockingId === u.id ? "Unlocking..." : "Unlock"}
+                                        </button>
                                     </div>
                                 ))}
                             </div>
