@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authHeaders } from "../lib/apiHeaders";
 
 export type SiteOption = {
     site_id: string;
@@ -15,7 +16,9 @@ const useSites = () => {
         const fetchSites = async () => {
             try {
                 setLoading(true);
-                const response = await fetch("http://localhost:3000/statistics/sites");
+                const response = await fetch("http://localhost:3000/statistics/sites", {
+                    headers: authHeaders(),
+                });
 
                 if (!response.ok) {
                     throw new Error("Failed to fetch sites");

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authHeaders } from "../lib/apiHeaders";
 
 type PiePoint = {
     name: string;
@@ -43,7 +44,7 @@ const useTechnologyDistribution = (endpoint: string, from?: Date, to?: Date, sit
                     url += `?${qs}`;
                 }
 
-                const response = await fetch(url);
+                const response = await fetch(url, { headers: authHeaders() });
 
                 if (!response.ok) {
                     throw new Error("Failed to fetch distribution");

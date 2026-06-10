@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authHeaders } from "../lib/apiHeaders";
 
 interface Stats {
     total: number;
@@ -18,7 +19,7 @@ const useStats = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await fetch("http://localhost:3000/dashboard/stats");
+                const response = await fetch("http://localhost:3000/dashboard/stats", { headers: authHeaders() });
                 const data = await response.json();
                 setStats(data);
             } catch (err) {

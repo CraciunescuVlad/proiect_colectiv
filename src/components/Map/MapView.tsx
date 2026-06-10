@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { authHeaders } from "../../lib/apiHeaders";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { Alarm, Site, Incident } from "./MapPage";
@@ -52,7 +53,7 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
         // Expunem funcția global pentru a putea fi apelata din HTML-ul injectat de Mapbox
         window.openAlarmDetails = async (alarmType: string) => {
             try {
-                const res = await fetch(`http://localhost:3000/map/alarm-type/${alarmType}`);
+                const res = await fetch(`http://localhost:3000/map/alarm-type/${alarmType}`, { headers: authHeaders() });
                 const data = await res.json();
                 setSelectedAlarmInfo(data);
                 setIsModalOpen(true);

@@ -137,9 +137,9 @@ const signupStore = new Map<string, SignupEntry>();
 type MfaEntry = { code: string; expiry: number; session: any };
 const mfaStore = new Map<string, MfaEntry>();
 
-app.use("/dashboard", createDashboardRouter(supabase));
-app.use("/map", createMapRouter(supabase));
-app.use("/statistics", createStatisticsRouter(supabase));
+app.use("/dashboard", requireAuth, createDashboardRouter(supabase));
+app.use("/map", requireAuth, createMapRouter(supabase));
+app.use("/statistics", requireAuth, createStatisticsRouter(supabase));
 
 const runScript = () => {
   exec("py ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
@@ -169,7 +169,7 @@ app.post("/auth/login", async (req: Request, res: Response) => {
         return;
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = crypto.randomInt(100000, 1000000).toString();
     mfaStore.set(email, { code, expiry: Date.now() + 5 * 60 * 1000, session: data.session });
 
     try {
@@ -296,7 +296,7 @@ app.get("/sites", requireAuth, async (req: Request, res: Response) => {
 
 
 // GET toate alarmele
-app.get("/alarms", async (req: Request, res: Response) => {
+app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
     const { data, error } = await supabase
         .from("alarms")
         .select(`
@@ -321,7 +321,7 @@ app.get("/alarms", async (req: Request, res: Response) => {
 
 
 // GET toate incidentele
-app.get("/incidents", async (req: Request, res: Response) => {
+app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
     const { status } = req.query;
     const token = req.headers.authorization?.split(" ")[1];
 
@@ -760,7 +760,7 @@ app.patch("/incidents/:id/resolve", requireAuth, async (req: Request, res: Respo
     res.json(data);
 });
 
-app.get("/incidents/:id", async (req: Request, res: Response) => {
+app.get("/incidents/:id", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const { data: incident, error } = await supabase

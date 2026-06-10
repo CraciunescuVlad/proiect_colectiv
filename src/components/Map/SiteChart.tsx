@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authHeaders } from "../../lib/apiHeaders";
 import {
     AreaChart, Area, XAxis, YAxis,
     CartesianGrid, Tooltip, ResponsiveContainer,
@@ -37,7 +38,7 @@ const SiteChart = ({ siteId, type, color }: SiteChartProps) => {
             setLoading(true);
             setError(null);
             try {
-                const res = await fetch(`http://localhost:3000/map/sites/${siteId}/${type}/chart`);
+                const res = await fetch(`http://localhost:3000/map/sites/${siteId}/${type}/chart`, { headers: authHeaders() });
                 const json = await res.json();
 
                 // make sure we got an array back

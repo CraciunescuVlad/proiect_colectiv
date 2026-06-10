@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authHeaders } from "../lib/apiHeaders";
 
 export type ViewerKpis = {
     avgResolutionMinutes: number;
@@ -37,7 +38,7 @@ const useViewerKpis = (assignedTo: string | null, from?: Date, to?: Date) => {
                 }
 
                 const url = `http://localhost:3000/statistics/incidents/kpis?${params.toString()}`;
-                const response = await fetch(url);
+                const response = await fetch(url, { headers: authHeaders() });
 
                 if (!response.ok) {
                     throw new Error("Failed to fetch KPIs");

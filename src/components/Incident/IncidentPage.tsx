@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { authHeaders } from "../../lib/apiHeaders";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useUser } from "../../context/UserContext";
@@ -75,7 +76,7 @@ const IncidentMap = ({ siteId }: { siteId: string }) => {
     useEffect(() => {
         const fetchSite = async () => {
             try {
-                const res = await fetch(`http://localhost:3000/map/sites/${siteId}`);
+                const res = await fetch(`http://localhost:3000/map/sites/${siteId}`, { headers: authHeaders() });
                 const data = await res.json();
                 setSite(data);
             } catch (err) {
