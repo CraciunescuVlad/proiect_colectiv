@@ -8,6 +8,7 @@ import cron from "node-cron";
 import { exec } from "child_process";
 import createDashboardRouter from "./routes/dashboard";
 import createMapRouter from "./routes/map";
+import createUsersRouter from "./routes/users";
 import createStatisticsRouter from "./routes/statistics";
 import { requireAdmin, requireAuth } from "./middleware/auth";
 import crypto from "crypto";
@@ -153,6 +154,7 @@ async function lockAccountInDb(userId: string): Promise<void> {
 app.use("/dashboard", requireAuth, createDashboardRouter(supabase));
 app.use("/map", requireAuth, createMapRouter(supabase));
 app.use("/statistics", requireAuth, createStatisticsRouter(supabase));
+
 
 const runScript = () => {
   exec("py ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
@@ -468,7 +470,7 @@ app.get("/users", requireAuth, async (req: Request, res: Response) => {
 });
 
 app.post("/users/create-by-admin", requireAuth, requireAdmin, async (req: Request, res: Response) => {
-    const {email} = req.body;
+    const { email, role } = req.body;
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         res.status(400).json({message: "Email invalid."});
@@ -492,41 +494,99 @@ app.post("/users/create-by-admin", requireAuth, requireAdmin, async (req: Reques
         res.status(status).json({message: error.message});
         return;
     }
+    if (role === "admin") {
+        await supabase
+            .from("profiles")
+            .upsert({ id: data.user.id, role: "admin" });
+    }
+
 
     const siteName = process.env.SITE_NAME || "AlarmUP";
     const siteUrl = process.env.SITE_URL || "https://example.com";
 
     try {
-        await sendHtmlEmail(email, `Contul tău pe ${siteName} a fost creat`, `
+        await sendHtmlEmail(email, `Your ${siteName} account has been created`, `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:480px;margin:auto;border-radius:12px;">
-    <h2 style="color:#fff;margin-bottom:4px;">Bun venit pe ${siteName}!</h2>
-        <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
-        Tocmai ți-a fost creat un cont pe
+    <h2 style="color:#fff;margin-bottom:4px;">Welcome to ${siteName}!</h2>
+    <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
+        An account has been created for you on
         <a href="${siteUrl}" style="color:#a78bfa;">${siteName}</a>.
-            Folosește credențialele de mai jos pentru a te autentifica.
-         </p>
+        Use the credentials below to sign in.
+    </p>
     <div style="background:#1a1030;border:1px solid #2d1f4e;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
-           <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Username (email)</p>
-         <p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#e2e8f0;">${email}</p>
-        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Parolă generată automat</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Username (email)</p>
+        <p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#e2e8f0;">${email}</p>
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Auto-generated password</p>
         <p style="margin:0;font-size:20px;font-weight:700;letter-spacing:3px;color:#a78bfa;font-family:monospace;">${plainPassword}</p>
     </div>
-         <p style="color:#f87171;font-size:12px;margin:0 0 24px;">
-     Te rugăm să îți schimbi parola imediat după prima autentificare.
-            </p>
-            <a href="${siteUrl}/login"
-                style="display:inline-block;background:#a78bfa;color:#0f0a1e;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">
-                 Autentifică-te acum →
-            </a>
-        <p style="margin:24px 0 0;font-size:11px;color:#4b5563;">AlarmUP · Cont creat de un administrator</p>
-      </div>`);
+    <p style="color:#f87171;font-size:12px;margin:0 0 24px;">
+        Please change your password immediately after your first sign in.
+    </p>
+    <a href="${siteUrl}/login"
+        style="display:inline-block;background:#a78bfa;color:#0f0a1e;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">
+        Sign in now →
+    </a>
+    <p style="margin:24px 0 0;font-size:11px;color:#4b5563;">AlarmUP · Account created by an administrator</p>
+</div>`);
     } catch (emailErr) {
         console.error("Failed to send welcome email:", emailErr);
-        res.status(201).json({message: "Cont creat, dar emailul nu a putut fi trimis."});
+        res.status(201).json({ message: "Account created, but the email could not be sent." });
         return;
     }
 
-    res.status(201).json({message: "Cont creat și email trimis cu succes."});
+    res.status(201).json({ message: "Account created and email sent successfully." });});
+
+app.post("/users/change-password", requireAuth, async (req: Request, res: Response) => {
+    const { oldPassword, newPassword } = req.body;
+    const authUser = req.user!;
+
+    if (!oldPassword || !newPassword) {
+        res.status(400).json({ message: "All fields are required." });
+        return;
+    }
+
+    if (newPassword.length < 8) {
+        res.status(400).json({ message: "New password must be at least 8 characters." });
+        return;
+    }
+
+    if (!/[A-Z]/.test(newPassword)) {
+        res.status(400).json({ message: "Password must contain at least one uppercase letter." });
+        return;
+    }
+
+    if (!/[0-9]/.test(newPassword)) {
+        res.status(400).json({ message: "Password must contain at least one number." });
+        return;
+    }
+
+    try {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: authUser.email!,
+            password: oldPassword,
+        });
+
+        if (signInError) {
+            res.status(401).json({ message: "Current password is incorrect." });
+            return;
+        }
+
+        const { error: updateError } = await supabase.auth.admin.updateUserById(
+            authUser.id,
+            { password: newPassword }
+        );
+
+        if (updateError) {
+            res.status(400).json({ message: updateError.message });
+            return;
+        }
+
+        res.status(200).json({ message: "Password changed successfully." });
+
+    } catch (err: any) {
+        console.error("[change-password]", err);
+        res.status(500).json({ message: "Internal server error." });
+    }
 });
 
 

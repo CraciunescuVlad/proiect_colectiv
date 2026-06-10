@@ -11,7 +11,7 @@ import Signup from "../components/Signup/Signup";
 import incidentRoute from "./incident";
 import IncidentPage from "../components/Incident/IncidentPage.tsx";
 import AdminRequestsPage from "../components/AdminRequests/AdminRequestsPage.tsx";
-import ChangePassword from "../components/ChangePassword/ChangePassword.tsx";
+import ProfilePage from "../components/Profile/ProfilePage.tsx";
 
 const routes: RouteObject[] = [
     {
@@ -21,7 +21,6 @@ const routes: RouteObject[] = [
     loginRoute,
     signupRoute,
     callbackRoute,
-    { path: "/change-password", element: <ChangePassword /> },
     {
         element: (
             <ProtectedRoute>
@@ -35,6 +34,7 @@ const routes: RouteObject[] = [
             { path: "/signup", element: <Signup /> },
             { path: "/incident/:id", element: <IncidentPage /> },
             { path: "/admin-requests", element: <AdminRequestsPage /> },
+            { path: "/profile", element: <ProfilePage /> },
         ],
     },
 ];

@@ -29,7 +29,6 @@ const Sidebar = () => {
             className={`flex flex-col justify-between h-screen bg-[#0a0015] border-r border-white/10 px-4 py-6 fixed left-0 top-0 z-50 transition-all duration-300 ease-in-out
             ${expanded ? "w-64" : "w-16"}`}
         >
-            {/* Logo */}
             <div>
                 <div className="mb-8 px-2 h-7 flex items-center overflow-hidden">
                     {expanded ? (
@@ -39,7 +38,6 @@ const Sidebar = () => {
                     )}
                 </div>
 
-                {/* Nav items */}
                 <nav className="flex flex-col gap-1">
                     {navItems.map((item) => {
                         const isActive = location.pathname === item.route;
@@ -65,20 +63,27 @@ const Sidebar = () => {
                 </nav>
             </div>
 
-            {/* Footer */}
             <div className={`flex items-center pt-4 border-t border-white/10 transition-all duration-300
                 ${expanded ? "justify-between px-2" : "justify-center flex-col gap-3"}`}
             >
-                <img
-                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.email ?? "User"}`}
-                    alt="Profile"
-                    className="w-8 h-8 rounded-full bg-white/10 shrink-0"
-                />
-                {expanded && (
-                    <span className="text-white/70 text-sm font-medium whitespace-nowrap truncate max-w-[120px]">
-                        {user?.email ?? "User"}
-                    </span>
-                )}
+                <button
+                    onClick={() => navigate("/profile")}
+                    className={`flex items-center gap-2 rounded-lg transition-colors hover:bg-white/5 p-1 -m-1
+                        ${location.pathname === "/profile" ? "opacity-100" : "opacity-80 hover:opacity-100"}`}
+                    title="My profile"
+                >
+                    <img
+                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.email ?? "User"}`}
+                        alt="Profile"
+                        className="w-8 h-8 rounded-full bg-white/10 shrink-0"
+                    />
+                    {expanded && (
+                        <span className="text-white/70 text-sm font-medium whitespace-nowrap truncate max-w-[120px]">
+                            {user?.email ?? "User"}
+                        </span>
+                    )}
+                </button>
+
                 <button
                     onClick={handleLogout}
                     className="text-white/40 hover:text-red-400 transition-colors shrink-0"
