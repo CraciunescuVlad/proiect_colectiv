@@ -181,6 +181,7 @@ const MapPage = () => {
                             selectedTechs={selectedTechs}
                             availableTechs={availableTechs}
                             onTechFilter={setSelectedTechs}
+                            filter={filter}
                         />
                     </div>
 

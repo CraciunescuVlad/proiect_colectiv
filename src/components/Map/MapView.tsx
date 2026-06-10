@@ -16,6 +16,7 @@ interface MapViewProps {
     selectedTechs: string[];
     availableTechs: string[];
     onTechFilter: (techs: string[]) => void;
+    filter: "all" | "incidents" | "alarms" | "normal";
 }
 type AlarmInfo = {
     alarm_name: string;
@@ -29,7 +30,7 @@ declare global {
 }
 
 
-const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onMarkerClick , selectedTechs,availableTechs,onTechFilter}: MapViewProps) => {
+const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onMarkerClick , selectedTechs, availableTechs, onTechFilter, filter}: MapViewProps) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
 
@@ -81,18 +82,21 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
             sites.forEach((site) => {
                 const hasIncident = incidentSites.has(site.id);
 
-                // Filtram alarmele standalone specifice acestui site
                 const siteStandaloneAlarms = standalone_alarms.filter(a =>
                     a.site === site.id &&
                     (selectedTechs.length === 0 || selectedTechs.includes(a.tehnologie))
                 );
                 const hasStandalone = siteStandaloneAlarms.length > 0;
+                const isNormal = !hasIncident && !hasStandalone;
 
+                // Apply category filter
+                if (filter === "incidents" && !hasIncident) return;
+                if (filter === "alarms" && !hasStandalone) return;
+                if (filter === "normal" && !isNormal) return;
 
                 const el = document.createElement("div");
                 el.className = "marker-container";
 
-                // Logica vizuala a markerului
                 if (hasIncident) {
                     el.innerHTML = `<svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="#ef4444" stroke="white" stroke-width="1.5"/></svg>`;
                 } else if (hasStandalone) {
@@ -106,8 +110,6 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
                     .addTo(map.current!);
 
                 el.addEventListener("click", () => onMarkerClick(site.id));
-
-                // 3. Salveaza markerul nou în referinta
                 markersRef.current.push(marker);
             });
         };
@@ -122,7 +124,7 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
         return () => {
             markersRef.current.forEach(m => m.remove());
         };
-    }, [sites, standalone_alarms, incidents, incidentSites, selectedTechs]);
+    }, [sites, standalone_alarms, incidents, incidentSites, selectedTechs, filter]);
     useEffect(() => {
         setTimeout(() => map.current?.resize(), 300);
     }, [view]);
