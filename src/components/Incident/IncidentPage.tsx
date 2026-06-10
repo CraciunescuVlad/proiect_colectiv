@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { authHeaders } from "../../lib/apiHeaders";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useUser } from "../../context/UserContext";
@@ -75,7 +76,7 @@ const IncidentMap = ({ siteId }: { siteId: string }) => {
     useEffect(() => {
         const fetchSite = async () => {
             try {
-                const res = await fetch(`http://localhost:3000/map/sites/${siteId}`);
+                const res = await fetch(`http://localhost:3000/map/sites/${siteId}`, { headers: authHeaders() });
                 const data = await res.json();
                 setSite(data);
             } catch (err) {
@@ -136,6 +137,8 @@ const IncidentPage = () => {
     const [sendingReport, setSendingReport] = useState(false);
     const [reportSent, setReportSent] = useState(false);
     const [reportError, setReportError] = useState<string | null>(null);
+    const [showAssignPanel, setShowAssignPanel] = useState(false);
+    const [selectedAssignee, setSelectedAssignee] = useState("");
     const [showResolvePanel, setShowResolvePanel] = useState(false);
     const [resolveDateTime, setResolveDateTime] = useState("");
     const [resolveMessage, setResolveMessage] = useState("");
@@ -256,8 +259,23 @@ const IncidentPage = () => {
         }
     };
 
+    const handleOpenAssign = async () => {
+        setShowAssignPanel(true);
+        setSelectedAssignee("");
+        if (users.length > 0) return;
+        try {
+            const res = await fetch("http://localhost:3000/users", {
+                headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+            });
+            const data = await res.json();
+            setUsers(Array.isArray(data) ? data : []);
+        } catch {
+            setUsers([]);
+        }
+    };
+
     const handleAssign = async () => {
-        if (!incident || !user) return;
+        if (!incident || !selectedAssignee) return;
         setAssigning(true);
         try {
             const res = await fetch(`http://localhost:3000/incidents/${id}/assign`, {
@@ -266,10 +284,12 @@ const IncidentPage = () => {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${localStorage.getItem("token")}`,
                 },
-                body: JSON.stringify({ assigned_to: user.id }),
+                body: JSON.stringify({ assigned_to: selectedAssignee }),
             });
             const data = await res.json();
             setIncident(prev => prev ? { ...prev, assigned_to: data.assigned_to } : prev);
+            setShowAssignPanel(false);
+            setSelectedAssignee("");
         } catch (err) {
             console.error("Failed to assign", err);
         } finally {
@@ -489,13 +509,44 @@ const IncidentPage = () => {
                         <h2 className="text-white font-medium text-sm mb-4">Actions</h2>
                         <div className="flex flex-col gap-3">
                             {user?.role === "admin" && (
-                                <button
-                                    onClick={handleAssign}
-                                    disabled={assigning}
-                                    className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                    {assigning ? "Assigning..." : incident.assigned_to === user.id ? "Reassign to me" : "Assign to me"}
-                                </button>
+                                !showAssignPanel ? (
+                                    <button
+                                        onClick={handleOpenAssign}
+                                        className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-sm rounded-lg transition-colors"
+                                    >
+                                        {incident.assigned_to ? "Reassign" : "Assign to user"}
+                                    </button>
+                                ) : (
+                                    <div className="flex flex-col gap-2 border border-white/10 rounded-xl p-3">
+                                        <p className="text-white/50 text-xs">Assign to</p>
+                                        <select
+                                            value={selectedAssignee}
+                                            onChange={(e) => setSelectedAssignee(e.target.value)}
+                                            className="w-full text-sm border border-white/20 rounded-lg px-3 py-2 outline-none focus:border-white/50"
+                                            style={{ backgroundColor: "#1a1030", color: "white" }}
+                                        >
+                                            <option value="" disabled style={{ backgroundColor: "#1a1030", color: "#6b7280" }}>Select user...</option>
+                                            {users.map(u => (
+                                                <option key={u.id} value={u.id} style={{ backgroundColor: "#1a1030", color: "white" }}>{u.email}</option>
+                                            ))}
+                                        </select>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={handleAssign}
+                                                disabled={assigning || !selectedAssignee}
+                                                className="flex-1 py-2 bg-white text-gray-900 text-xs font-medium rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-40"
+                                            >
+                                                {assigning ? "Assigning..." : "Confirm"}
+                                            </button>
+                                            <button
+                                                onClick={() => { setShowAssignPanel(false); setSelectedAssignee(""); }}
+                                                className="flex-1 py-2 bg-white/5 text-white/70 text-xs rounded-lg hover:bg-white/10 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
                             )}
 
                             {!incident.end_time && (user?.role === "admin" || incident.assigned_to === user?.id) && (

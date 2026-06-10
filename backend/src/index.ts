@@ -135,12 +135,25 @@ function buildNewMessageEmail(incidentId: string, site: any, messageText: string
 type SignupEntry = { userId: string; otp: string; expiry: number };
 const signupStore = new Map<string, SignupEntry>();
 
-type MfaEntry = { code: string; expiry: number; session: any };
+type MfaEntry = { code: string; expiry: number; session: any; attempts: number };
 const mfaStore = new Map<string, MfaEntry>();
 
-app.use("/dashboard", createDashboardRouter(supabase));
-app.use("/map", createMapRouter(supabase));
-app.use("/statistics", createStatisticsRouter(supabase));
+const MAX_LOGIN_ATTEMPTS = 3;
+type LoginAttemptEntry = { attempts: number; lockedUntil: number };
+const loginAttemptStore = new Map<string, LoginAttemptEntry>();
+
+async function getUserByEmail(email: string) {
+    const { data } = await supabase.auth.admin.listUsers();
+    return data?.users?.find(u => u.email === email) ?? null;
+}
+
+async function lockAccountInDb(userId: string): Promise<void> {
+    await supabase.from("profiles").update({ locked: true }).eq("id", userId);
+}
+
+app.use("/dashboard", requireAuth, createDashboardRouter(supabase));
+app.use("/map", requireAuth, createMapRouter(supabase));
+app.use("/statistics", requireAuth, createStatisticsRouter(supabase));
 
 
 const runScript = () => {
@@ -164,15 +177,46 @@ const runScript = () => {
 app.post("/auth/login", async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error || !data.session) {
-        res.status(401).json({ message: "Invalid email or password" });
+    const attempt = loginAttemptStore.get(email);
+    if (attempt && attempt.lockedUntil > Date.now()) {
+        res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
         return;
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    mfaStore.set(email, { code, expiry: Date.now() + 5 * 60 * 1000, session: data.session });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error || !data.session) {
+        const current = loginAttemptStore.get(email) ?? { attempts: 0, lockedUntil: 0 };
+        const newAttempts = current.attempts + 1;
+        if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+            loginAttemptStore.set(email, { attempts: newAttempts, lockedUntil: Number.MAX_SAFE_INTEGER });
+            const user = await getUserByEmail(email);
+            if (user) await lockAccountInDb(user.id);
+            res.status(403).json({ message: "Account locked due to too many failed attempts. Contact an administrator." });
+        } else {
+            loginAttemptStore.set(email, { attempts: newAttempts, lockedUntil: 0 });
+            res.status(401).json({ message: `Invalid email or password. ${MAX_LOGIN_ATTEMPTS - newAttempts} attempt(s) remaining.` });
+        }
+        return;
+    }
+
+    // Safety net: check DB lock even after a successful password (covers server restarts)
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("locked")
+        .eq("id", data.session.user.id)
+        .single();
+
+    if (profile?.locked) {
+        loginAttemptStore.set(email, { attempts: MAX_LOGIN_ATTEMPTS, lockedUntil: Number.MAX_SAFE_INTEGER });
+        res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
+        return;
+    }
+
+    loginAttemptStore.delete(email);
+
+    const code = crypto.randomInt(100000, 1000000).toString();
+    mfaStore.set(email, { code, expiry: Date.now() + 5 * 60 * 1000, session: data.session, attempts: 0 });
 
     try {
         await sendEmail(
@@ -202,23 +246,30 @@ app.post("/auth/verify-mfa", async (req: Request, res: Response) => {
         return;
     }
     if (stored.code !== code) {
-        res.status(400).json({ message: "Invalid code." });
+        stored.attempts += 1;
+        if (stored.attempts >= MAX_LOGIN_ATTEMPTS) {
+            mfaStore.delete(email);
+            res.status(400).json({ message: "Too many failed attempts. Please log in again." });
+        } else {
+            res.status(400).json({ message: `Invalid code. ${MAX_LOGIN_ATTEMPTS - stored.attempts} attempt(s) remaining.` });
+        }
         return;
     }
 
     mfaStore.delete(email);
 
-    const { data: userData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", stored.session.user.id)
-        .single();
+    const [profileResult, freshUserResult] = await Promise.all([
+        supabase.from("profiles").select("role").eq("id", stored.session.user.id).single(),
+        supabase.auth.admin.getUserById(stored.session.user.id),
+    ]);
 
-    const role = userData?.role ?? "viewer";
+    const role = profileResult.data?.role ?? "viewer";
+    const mustChangePassword = freshUserResult.data?.user?.app_metadata?.must_change_password === true;
 
     res.json({
         token: stored.session.access_token,
         user: { id: stored.session.user.id, email: stored.session.user.email, role },
+        mustChangePassword,
     });
 });
 
@@ -298,7 +349,7 @@ app.get("/sites", requireAuth, async (req: Request, res: Response) => {
 
 
 // GET toate alarmele
-app.get("/alarms", async (req: Request, res: Response) => {
+app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
     const { data, error } = await supabase
         .from("alarms")
         .select(`
@@ -323,7 +374,7 @@ app.get("/alarms", async (req: Request, res: Response) => {
 
 
 // GET toate incidentele
-app.get("/incidents", async (req: Request, res: Response) => {
+app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
     const { status } = req.query;
     const token = req.headers.authorization?.split(" ")[1];
 
@@ -820,7 +871,7 @@ app.patch("/incidents/:id/resolve", requireAuth, async (req: Request, res: Respo
     res.json(data);
 });
 
-app.get("/incidents/:id", async (req: Request, res: Response) => {
+app.get("/incidents/:id", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const { data: incident, error } = await supabase
@@ -1039,6 +1090,96 @@ app.patch("/admin-requests/:id/reject", requireAuth, requireAdmin, async (req: R
             console.error("Failed to send rejection email:", err);
         }
     })();
+});
+
+// ── Locked account management ────────────────────────────────────────────────
+
+app.get("/admin/locked-users", requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+    const { data: lockedProfiles, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("locked", true);
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    if (!lockedProfiles || lockedProfiles.length === 0) {
+        res.json([]);
+        return;
+    }
+
+    const { data: allUsers } = await supabase.auth.admin.listUsers();
+    const lockedIds = new Set(lockedProfiles.map((p: any) => p.id));
+    const lockedUsers = (allUsers?.users ?? [])
+        .filter(u => lockedIds.has(u.id))
+        .map(u => ({ id: u.id, email: u.email }));
+
+    res.json(lockedUsers);
+});
+
+app.patch("/admin/users/:id/unlock", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+
+    const { data: userAuth, error: userError } = await supabase.auth.admin.getUserById(id);
+    if (userError || !userAuth?.user?.email) {
+        res.status(404).json({ message: "User not found" });
+        return;
+    }
+
+    const userEmail = userAuth.user.email;
+
+    const charset = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%";
+    const tempPassword = Array.from(crypto.randomBytes(12))
+        .map((b: number) => charset[b % charset.length])
+        .join("");
+
+    const { error: updateError } = await supabase.auth.admin.updateUserById(id, {
+        password: tempPassword,
+        app_metadata: { must_change_password: true },
+    });
+
+    if (updateError) {
+        res.status(500).json({ message: updateError.message });
+        return;
+    }
+
+    await supabase.from("profiles").update({ locked: false }).eq("id", id);
+    loginAttemptStore.delete(userEmail);
+
+    try {
+        await sendEmail(
+            userEmail,
+            "AlarmUP — Account Unlocked",
+            `Your account has been unlocked by an administrator.\n\nYou can now log in with the temporary password below:\n\nTemporary password: ${tempPassword}\n\nYou will be required to set a new password immediately after logging in. This temporary password cannot be reused.\n\nIf you did not expect this email, contact your administrator.`
+        );
+    } catch (emailErr) {
+        console.error("Failed to send unlock email:", emailErr);
+    }
+
+    res.json({ message: "Account unlocked. Temporary password sent to user." });
+});
+
+app.post("/auth/change-password", requireAuth, async (req: Request, res: Response) => {
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 8) {
+        res.status(400).json({ message: "Password must be at least 8 characters." });
+        return;
+    }
+
+    const { error } = await supabase.auth.admin.updateUserById(req.user!.id, {
+        password: newPassword,
+        app_metadata: { must_change_password: false },
+    });
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    res.json({ message: "Password changed successfully." });
 });
 
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))
