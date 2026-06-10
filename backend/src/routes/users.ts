@@ -57,6 +57,7 @@ const createUsersRouter = (supabase: SupabaseClient) => {
 
             const siteName = process.env.SITE_NAME || "AlarmUP";
             const siteUrl = process.env.SITE_URL || "http://localhost:5173";
+
             await transporter.sendMail({
                 from: `"${siteName}" <${process.env.SMTP_USER}>`,
                 to: email,
@@ -92,7 +93,6 @@ const createUsersRouter = (supabase: SupabaseClient) => {
             return res.status(500).json({ message: "Internal server error." });
         }
     });
-
 
     return router;
 };
