@@ -56,8 +56,7 @@ const createUsersRouter = (supabase: SupabaseClient) => {
             }
 
             const siteName = process.env.SITE_NAME || "AlarmUP";
-            const siteUrl  = process.env.SITE_URL  || "https://example.com";
-
+            const siteUrl = process.env.SITE_URL || "http://localhost:5173";
             await transporter.sendMail({
                 from: `"${siteName}" <${process.env.SMTP_USER}>`,
                 to: email,
@@ -94,56 +93,6 @@ const createUsersRouter = (supabase: SupabaseClient) => {
         }
     });
 
-    // // ─── POST /change-password ────────────────────────────────────────────────
-    // router.post("/change-password", requireAuth, async (req: Request, res: Response) => {
-    //     const authUser = (req as any).user;
-    //
-    //     const { oldPassword, newPassword } = req.body;
-    //
-    //     if (!oldPassword || !newPassword) {
-    //         return res.status(400).json({ message: "All fields are required." });
-    //     }
-    //
-    //     if (newPassword.length < 8) {
-    //         return res.status(400).json({ message: "New password must be at least 8 characters." });
-    //     }
-    //
-    //     if (!/[A-Z]/.test(newPassword)) {
-    //         return res.status(400).json({ message: "Password must contain at least one uppercase letter." });
-    //     }
-    //
-    //     if (!/[0-9]/.test(newPassword)) {
-    //         return res.status(400).json({ message: "Password must contain at least one number." });
-    //     }
-    //
-    //     try {
-    //         // Verify old password by re-authenticating with Supabase
-    //         const { error: signInError } = await supabase.auth.signInWithPassword({
-    //             email: authUser.email,
-    //             password: oldPassword,
-    //         });
-    //
-    //         if (signInError) {
-    //             return res.status(401).json({ message: "Current password is incorrect." });
-    //         }
-    //
-    //         // Update password via Supabase Admin
-    //         const { error: updateError } = await supabase.auth.admin.updateUserById(
-    //             authUser.id,
-    //             { password: newPassword }
-    //         );
-    //
-    //         if (updateError) {
-    //             return res.status(400).json({ message: updateError.message });
-    //         }
-    //
-    //         return res.status(200).json({ message: "Password changed successfully." });
-    //
-    //     } catch (err: any) {
-    //         console.error("[change-password]", err);
-    //         return res.status(500).json({ message: "Internal server error." });
-    //     }
-    // });
 
     return router;
 };
