@@ -31,15 +31,14 @@ const AdminRequestsPage = () => {
     const [actionId, setActionId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-
     const [createEmail, setCreateEmail] = useState("");
     const [creating, setCreating] = useState(false);
     const [createStatus, setCreateStatus] = useState<CreateStatus>(null);
     const [emailError, setEmailError] = useState("");
-    const [createAsAdmin, setCreateAsAdmin] = useState(false);
 
     const [lockedUsers, setLockedUsers] = useState<{ id: string; email: string }[]>([]);
     const [unlockingId, setUnlockingId] = useState<string | null>(null);
+
     const token = () => localStorage.getItem("token");
 
     useEffect(() => {
@@ -152,16 +151,12 @@ const AdminRequestsPage = () => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token()}`,
                 },
-                body: JSON.stringify({
-                    email: createEmail.trim(),
-                    role: createAsAdmin ? "admin" : "user",
-                }),
+                body: JSON.stringify({ email: createEmail.trim() }),
             });
             const data = await res.json();
             if (res.ok) {
                 setCreateStatus({ type: "success", email: createEmail.trim() });
                 setCreateEmail("");
-                setCreateAsAdmin(false);
             } else {
                 setCreateStatus({ type: "error", message: data?.message || "An error occurred. Please try again." });
             }
@@ -239,18 +234,6 @@ const AdminRequestsPage = () => {
                                     )}
                                 </button>
                             </div>
-
-                            {/* Admin checkbox */}
-                            <label className="flex items-center gap-2.5 cursor-pointer w-fit">
-                                <input
-                                    type="checkbox"
-                                    checked={createAsAdmin}
-                                    onChange={e => setCreateAsAdmin(e.target.checked)}
-                                    disabled={creating}
-                                    className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500 cursor-pointer"
-                                />
-                                <span className="text-white/50 text-xs">Create as admin</span>
-                            </label>
 
                             {/* SUCCESS */}
                             {createStatus?.type === "success" && (
