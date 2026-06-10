@@ -11,6 +11,7 @@ import Signup from "../components/Signup/Signup";
 import incidentRoute from "./incident";
 import IncidentPage from "../components/Incident/IncidentPage.tsx";
 import AdminRequestsPage from "../components/AdminRequests/AdminRequestsPage.tsx";
+import ProfilePage from "../components/Profile/ProfilePage.tsx";
 
 const routes: RouteObject[] = [
     {
@@ -33,6 +34,7 @@ const routes: RouteObject[] = [
             { path: "/signup", element: <Signup /> },
             { path: "/incident/:id", element: <IncidentPage /> },
             { path: "/admin-requests", element: <AdminRequestsPage /> },
+            { path: "/profile", element: <ProfilePage /> },
         ],
     },
 ];
