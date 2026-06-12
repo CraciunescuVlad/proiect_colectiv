@@ -1,6 +1,7 @@
 import express from "express";
 import type { Request, Response } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
@@ -8,16 +9,29 @@ import cron from "node-cron";
 import { exec } from "child_process";
 import createDashboardRouter from "./routes/dashboard";
 import createMapRouter from "./routes/map";
-import createUsersRouter from "./routes/users";
+//import createUsersRouter from "./routes/users";
 import createStatisticsRouter from "./routes/statistics";
 import { requireAdmin, requireAuth } from "./middleware/auth";
 import crypto from "crypto";
+import  rateLimit from "express-rate-limit";
 
 dotenv.config();
 
 const app = express();
+app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
+
+// For production and testing they can be deactivatet temporarely
+// Limit number of login and signup for a certain IP to prevent brute-force attacks - 20 requests per 15 minutes
+const limiterAuth=rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, message: "Too many requests from this IP, please try again later." });
+app.use("/auth",limiterAuth);
+// Limit number of admin actions to prevent abuse (e.g., mass user creation) - 20 attempts per 15 minutes per IP
+const limiterAdmin=rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, message: "Too many requests from this IP, please try again later." });
+app.use("/admin",limiterAdmin);
+// limit the general API usage to prevent abuse - 250 requests per 15 minutes per IP
+const limiterGeneral=rateLimit({ windowMs: 15 * 60 * 1000, limit: 250, message: "Too many requests from this IP, please try again later." });
+app.use(limiterGeneral);
 
 // Supabase client (service role — backend only)
 const supabase = createClient(
@@ -25,11 +39,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
 const emailTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
+  port: smtpPort,
+  secure: smtpPort === 465,
+  requireTLS: smtpPort !== 465,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  tls: { rejectUnauthorized: true },
 });
 
 const sendEmail = (to: string, subject: string, text: string) =>
@@ -79,19 +96,19 @@ function buildAssignmentEmail(incidentId: string, incident: any, alarms: any[], 
         ? `<img src="${staticMapUrl(site.latitudine, site.longitude)}" width="600" style="border-radius:8px;display:block;margin:16px 0;" alt="Incident location"/>`
         : "";
     const alarmRows = alarms.map(a =>
-        `<tr><td style="padding:6px 10px;color:#94a3b8;">${a.tehnologie} · ${a.type}</td><td style="padding:6px 10px;color:#94a3b8;">${a.site}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
+        `<tr><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.tehnologie)} · ${escapeHtml(a.type)}</td><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.site)}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
     ).join("");
 
     return `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#fff;margin-bottom:4px;">You've been assigned to an incident</h2>
-  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${incidentId}</strong></p>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${escapeHtml(incidentId)}</strong></p>
 
   <table style="width:100%;border-collapse:collapse;margin:20px 0;">
-    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${incident?.priority ?? "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${incident?.status === 1 ? "#f87171" : "#4ade80"};">${incident?.status === 1 ? "Active" : "Resolved"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${site.city ?? ""} — ${site.address ?? ""}` : "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${escapeHtml(incident?.priority ?? "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${escapeHtml(incident?.status === 1 ? "#f87171" : "#4ade80")};">${escapeHtml(incident?.status === 1 ? "Active" : "Resolved")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${escapeHtml(incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${escapeHtml(site.city ?? "")} — ${escapeHtml(site.address ?? "")}` : "—"}</td></tr>
   </table>
 
   ${mapImg}
@@ -111,6 +128,18 @@ function buildAssignmentEmail(incidentId: string, incident: any, alarms: any[], 
 </div>`;
 }
 
+function escapeHtml(text: string): string {
+    const FORBIDDEN_CHARACTERS: { [key: string]: string } = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+    };
+    return text.replace(/[&<>"']/g, (c) => FORBIDDEN_CHARACTERS[c]);
+}
+
+
 function buildNewMessageEmail(incidentId: string, site: any, messageText: string, senderEmail: string): string {
     const mapImg = site
         ? `<img src="${staticMapUrl(site.latitudine, site.longitude)}" width="600" style="border-radius:8px;display:block;margin:16px 0;" alt="Incident location"/>`
@@ -118,14 +147,14 @@ function buildNewMessageEmail(incidentId: string, site: any, messageText: string
     return `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#fff;margin-bottom:4px;">New message on your incident</h2>
-  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${incidentId}</strong></p>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${escapeHtml(incidentId)}</strong></p>
 
   <div style="background:#1a1030;border-left:3px solid #a78bfa;padding:14px 18px;border-radius:6px;margin:20px 0;">
-    <p style="color:#94a3b8;font-size:12px;margin:0 0 6px;">From: ${senderEmail}</p>
-    <p style="color:#e2e8f0;margin:0;">${messageText}</p>
+    <p style="color:#94a3b8;font-size:12px;margin:0 0 6px;">From: ${escapeHtml(senderEmail)}</p>
+    <p style="color:#e2e8f0;margin:0;">${escapeHtml(messageText)}</p>
   </div>
 
-  ${site ? `<p style="color:#6b7280;font-size:13px;">Location: ${site.city ?? ""} ${site.address ?? ""}</p>` : ""}
+  ${site ? `<p style="color:#6b7280;font-size:13px;">Location: ${escapeHtml(site.city ?? "")} ${escapeHtml(site.address ?? "")}</p>` : ""}
   ${mapImg}
 
   <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · This is an automated notification</p>
@@ -216,7 +245,8 @@ app.post("/auth/login", async (req: Request, res: Response) => {
     loginAttemptStore.delete(email);
 
     const code = crypto.randomInt(100000, 1000000).toString();
-    mfaStore.set(email, { code, expiry: Date.now() + 5 * 60 * 1000, session: data.session, attempts: 0 });
+    const prevMfaAttempts = mfaStore.get(email)?.attempts ?? 0;
+    mfaStore.set(email, { code, expiry: Date.now() + 5 * 60 * 1000, session: data.session, attempts: prevMfaAttempts });
 
     try {
         await sendEmail(
@@ -232,6 +262,39 @@ app.post("/auth/login", async (req: Request, res: Response) => {
     res.json({ mfaRequired: true });
 });
 
+app.post("/auth/resend-mfa", async (req: Request, res: Response) => {
+    const { email } = req.body;
+
+    const stored = mfaStore.get(email);
+    if (!stored) {
+        res.status(400).json({ message: "No pending login. Please log in again." });
+        return;
+    }
+
+    const lockedEntry = loginAttemptStore.get(email);
+    if (lockedEntry && lockedEntry.lockedUntil > Date.now()) {
+        mfaStore.delete(email);
+        res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
+        return;
+    }
+
+    const newCode = crypto.randomInt(100000, 1000000).toString();
+    mfaStore.set(email, { ...stored, code: newCode, expiry: Date.now() + 5 * 60 * 1000 });
+
+    try {
+        await sendEmail(
+            email,
+            "AlarmUP Login Verification",
+            `Your new login verification code is: ${newCode}\n\nThis code expires in 5 minutes.`
+        );
+    } catch {
+        res.status(500).json({ message: "Failed to send email. Please try again." });
+        return;
+    }
+
+    res.json({ message: "A new code has been sent." });
+});
+
 app.post("/auth/verify-mfa", async (req: Request, res: Response) => {
     const { email, code } = req.body;
 
@@ -240,6 +303,14 @@ app.post("/auth/verify-mfa", async (req: Request, res: Response) => {
         res.status(400).json({ message: "No pending login. Please log in again." });
         return;
     }
+
+    const lockedEntry = loginAttemptStore.get(email);
+    if (lockedEntry && lockedEntry.lockedUntil > Date.now()) {
+        mfaStore.delete(email);
+        res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
+        return;
+    }
+
     if (Date.now() > stored.expiry) {
         mfaStore.delete(email);
         res.status(400).json({ message: "Code expired. Please log in again." });
@@ -249,7 +320,10 @@ app.post("/auth/verify-mfa", async (req: Request, res: Response) => {
         stored.attempts += 1;
         if (stored.attempts >= MAX_LOGIN_ATTEMPTS) {
             mfaStore.delete(email);
-            res.status(400).json({ message: "Too many failed attempts. Please log in again." });
+            loginAttemptStore.set(email, { attempts: stored.attempts, lockedUntil: Number.MAX_SAFE_INTEGER });
+            const user = await getUserByEmail(email);
+            if (user) await lockAccountInDb(user.id);
+            res.status(403).json({ message: "Account locked due to too many failed attempts. Contact an administrator." });
         } else {
             res.status(400).json({ message: `Invalid code. ${MAX_LOGIN_ATTEMPTS - stored.attempts} attempt(s) remaining.` });
         }
@@ -690,6 +764,25 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
 
 app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
+    const caller = req.user!;
+
+    if (caller.role !== "admin") {
+        const { data: incident, error: incidentError } = await supabase
+            .from("incidents")
+            .select("assigned_to")
+            .eq("incident_id", parseInt(id as string))
+            .single();
+
+        if (incidentError || !incident) {
+            res.status(404).json({ message: "Incident not found" });
+            return;
+        }
+
+        if (incident.assigned_to !== caller.id) {
+            res.status(403).json({ message: "Access denied" });
+            return;
+        }
+    }
 
     const { data, error } = await supabase
         .from("messages")
@@ -708,11 +801,30 @@ app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Respon
 
 app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
+    const caller = req.user!;
     const { recipient_id, recipient_email } = req.body;
 
     if (!recipient_id && !recipient_email) {
-        res.status(400).json({ message: "recipient_id or recipient_email is required" });
+        res.status(400).json({ message: "recipient_email is required" });
         return;
+    }
+
+    if (caller.role !== "admin") {
+        const { data: incident, error: incidentError } = await supabase
+            .from("incidents")
+            .select("assigned_to")
+            .eq("incident_id", parseInt(id as string))
+            .single();
+
+        if (incidentError || !incident) {
+            res.status(404).json({ message: "Incident not found" });
+            return;
+        }
+
+        if (incident.assigned_to !== caller.id) {
+            res.status(403).json({ message: "Access denied" });
+            return;
+        }
     }
 
     let recipientEmail: string;
@@ -745,13 +857,13 @@ app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Re
         ? messages.map(m => `
             <tr>
                 <td style="padding:8px 10px;color:#94a3b8;font-size:12px;white-space:nowrap;">${new Date(m.time).toLocaleString()}</td>
-                <td style="padding:8px 10px;color:#a78bfa;font-size:12px;">${m.id_user}</td>
-                <td style="padding:8px 10px;color:#e2e8f0;font-size:13px;">${m.message}</td>
+                <td style="padding:8px 10px;color:#a78bfa;font-size:12px;">${escapeHtml(m.id_user)}</td>
+                <td style="padding:8px 10px;color:#e2e8f0;font-size:13px;">${escapeHtml(m.message)}</td>
             </tr>`).join("")
         : `<tr><td colspan="3" style="padding:10px;color:#4b5563;font-size:12px;">No messages</td></tr>`;
 
     const alarmRows = alarms.map(a =>
-        `<tr><td style="padding:6px 10px;color:#94a3b8;">${a.tehnologie} · ${a.type}</td><td style="padding:6px 10px;color:#94a3b8;">${a.site}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
+        `<tr><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.tehnologie)} · ${escapeHtml(a.type)}</td><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.site)}</td><td style="padding:6px 10px;color:${escapeHtml(a.status === 1 ? "#f87171" : "#4ade80")};">${escapeHtml(a.status === 1 ? "Active" : "Resolved")}</td></tr>`
     ).join("");
 
     const mapImg = site
@@ -761,15 +873,15 @@ app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Re
     const html = `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#fff;margin-bottom:4px;">Incident Report</h2>
-  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${id}</strong></p>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${escapeHtml(String(id))}</strong></p>
 
   <table style="width:100%;border-collapse:collapse;margin:20px 0;">
-    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${incident?.priority ?? "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${incident?.status === 1 ? "#f87171" : "#4ade80"};">${incident?.status === 1 ? "Active" : "Resolved"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">End time</td><td style="color:#fff;">${incident?.end_time ? new Date(incident.end_time).toLocaleString() : "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Assigned to</td><td style="color:#fff;">${assignedEmail}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${site.city ?? ""} — ${site.address ?? ""}` : "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${escapeHtml(incident?.priority ?? "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${escapeHtml(incident?.status === 1 ? "#f87171" : "#4ade80")};">${escapeHtml(incident?.status === 1 ? "Active" : "Resolved")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${escapeHtml(incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">End time</td><td style="color:#fff;">${escapeHtml(incident?.end_time ? new Date(incident.end_time).toLocaleString() : "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Assigned to</td><td style="color:#fff;">${escapeHtml(assignedEmail)}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${escapeHtml(site.city ?? "")} — ${escapeHtml(site.address ?? "")}` : "—"}</td></tr>
   </table>
 
   ${mapImg}

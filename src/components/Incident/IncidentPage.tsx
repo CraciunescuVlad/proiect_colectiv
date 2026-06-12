@@ -191,6 +191,11 @@ const IncidentPage = () => {
         if (isEmailMode && !reportEmailInput.trim()) return;
         if (!isEmailMode && !reportRecipient) return;
 
+        if (isEmailMode && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reportEmailInput.trim())) {
+            setReportError("Please enter a valid email address.");
+            return;
+        }
+
         setSendingReport(true);
         setReportError(null);
         try {

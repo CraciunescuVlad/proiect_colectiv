@@ -11,6 +11,8 @@ const Login = () => {
     const [step, setStep] = useState<"login" | "mfa">("login");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendSuccess, setResendSuccess] = useState(false);
 
     const handleLogin = async () => {
         setLoading(true);
@@ -35,6 +37,30 @@ const Login = () => {
             setError("Something went wrong. Try again.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleResendMfa = async () => {
+        setResendLoading(true);
+        setResendSuccess(false);
+        setError("");
+        try {
+            const response = await fetch("http://localhost:3000/auth/resend-mfa", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                setError(data.message);
+                return;
+            }
+            setMfaCode("");
+            setResendSuccess(true);
+        } catch {
+            setError("Something went wrong. Try again.");
+        } finally {
+            setResendLoading(false);
         }
     };
 
@@ -125,13 +151,19 @@ const Login = () => {
                         </button>
 
                         <p className="text-white/40 text-sm mt-4 text-center">
-                            Didn't receive it?{" "}
-                            <span
-                                onClick={() => { setStep("login"); setError(""); setMfaCode(""); }}
-                                className="text-white cursor-pointer hover:underline"
-                            >
-                                Try again
-                            </span>
+                            {resendSuccess ? (
+                                <span className="text-green-400">A new code was sent.</span>
+                            ) : (
+                                <>
+                                    Didn't receive it?{" "}
+                                    <span
+                                        onClick={resendLoading ? undefined : handleResendMfa}
+                                        className={`text-white hover:underline ${resendLoading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                                    >
+                                        {resendLoading ? "Sending..." : "Try again"}
+                                    </span>
+                                </>
+                            )}
                         </p>
                     </div>
                 </div>
