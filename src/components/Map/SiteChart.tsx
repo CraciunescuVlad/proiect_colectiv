@@ -38,7 +38,7 @@ const SiteChart = ({ siteId, type, color }: SiteChartProps) => {
             setLoading(true);
             setError(null);
             try {
-                const res = await fetch(`http://localhost:3000/map/sites/${siteId}/${type}/chart`, { headers: authHeaders() });
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/map/sites/${siteId}/${type}/chart`, { headers: authHeaders() });
                 const json = await res.json();
 
                 // make sure we got an array back

@@ -19,7 +19,7 @@ const useStats = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await fetch("http://localhost:3000/dashboard/stats", { headers: authHeaders() });
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/dashboard/stats`, { headers: authHeaders() });
                 const data = await response.json();
                 setStats(data);
             } catch (err) {

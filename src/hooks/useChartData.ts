@@ -15,8 +15,8 @@ const useChartData = (type: "incidents" | "alarms") => {
             setLoading(true);
             try {
                 const endpoint = type === "alarms"
-                    ? "http://localhost:3000/dashboard/alarms/chart"
-                    : "http://localhost:3000/dashboard/incidents/chart";
+                    ? `${import.meta.env.VITE_BACKEND_URL}/dashboard/alarms/chart`
+                    : `${import.meta.env.VITE_BACKEND_URL}/dashboard/incidents/chart`;
                 const response = await fetch(endpoint);
                 const json = await response.json();
                 setData(json);

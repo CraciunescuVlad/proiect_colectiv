@@ -43,7 +43,7 @@ const useOverviewKpis = (from?: Date, to?: Date, siteIds?: string[]) => {
                     params.append("siteId", siteIds.join(","));
                 }
 
-                let url = "http://localhost:3000/statistics/overview-kpis";
+                let url = `${import.meta.env.VITE_BACKEND_URL}/statistics/overview-kpis`;
                 const qs = params.toString();
                 if (qs !== "") {
                     url += `?${qs}`;

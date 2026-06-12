@@ -19,7 +19,7 @@ const useIncidents = () => {
         const fetchIncidents = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const response = await fetch("http://localhost:3000/incidents?status=1", {
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents?status=1`, {
                     headers: {
                         "Authorization": `Bearer ${token}`,
                     },

@@ -27,7 +27,7 @@ const Signup = () => {
         setError("");
 
         try {
-            const response = await fetch("http://localhost:3000/auth/signup", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/signup`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
@@ -58,7 +58,7 @@ const Signup = () => {
         setError("");
 
         try {
-            const response = await fetch("http://localhost:3000/auth/verify-email", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/verify-email`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, otp }),

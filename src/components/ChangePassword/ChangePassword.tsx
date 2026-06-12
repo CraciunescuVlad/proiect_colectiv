@@ -27,7 +27,7 @@ const ChangePassword = () => {
 
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:3000/auth/change-password", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/change-password`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

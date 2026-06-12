@@ -38,7 +38,7 @@ const AssignedEmail = ({ userId }: { userId: string }) => {
         const fetch_user = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch(`http://localhost:3000/users/${userId}`, {
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users/${userId}`, {
                     headers: { "Authorization": `Bearer ${token}` },
                 });
                 const data = await res.json();
@@ -59,7 +59,7 @@ const MessageCell = ({ incidentId, initialMessage }: { incidentId: number; initi
     const handleSave = async () => {
         setSaving(true);
         try {
-            await fetch(`http://localhost:3000/incidents/${incidentId}/message`, {
+            await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${incidentId}/message`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("token")}` },
                 body: JSON.stringify({ messages: message }),
@@ -125,7 +125,7 @@ const IncidentsTable = () => {
 
     useEffect(() => {
         if (user?.role !== "admin") return;
-        fetch("http://localhost:3000/users", {
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/users`, {
             headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
         }).then(r => r.json()).then(data => setUsers(Array.isArray(data) ? data : [])).catch(() => {});
     }, [user]);

@@ -161,7 +161,7 @@ function buildNewMessageEmail(incidentId: string, site: any, messageText: string
 </div>`;
 }
 
-type SignupEntry = { userId: string; otp: string; expiry: number };
+type SignupEntry = { userId: string; otp: string; expiry: number; attempts: number };
 const signupStore = new Map<string, SignupEntry>();
 
 type MfaEntry = { code: string; expiry: number; session: any; attempts: number };
@@ -362,7 +362,7 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
     }
 
     const otp = data.properties.email_otp;
-    signupStore.set(email, { userId: data.user.id, otp, expiry: Date.now() + 5 * 60 * 1000 });
+    signupStore.set(email, { userId: data.user.id, otp, expiry: Date.now() + 5 * 60 * 1000, attempts: 0 });
 
     try {
         await sendEmail(
@@ -380,6 +380,7 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
 
 app.post("/auth/verify-email", async (req: Request, res: Response) => {
     const { email, otp } = req.body;
+    const MAX_VERIFICATION_ATTEMPTS = 5;
 
     const stored = signupStore.get(email);
     if (!stored) {
@@ -392,7 +393,13 @@ app.post("/auth/verify-email", async (req: Request, res: Response) => {
         return;
     }
     if (stored.otp !== otp) {
-        res.status(400).json({ message: "Invalid code." });
+        stored.attempts += 1;
+        if (stored.attempts >= MAX_VERIFICATION_ATTEMPTS) {
+            signupStore.delete(email);
+            res.status(403).json({ message: "Too many failed attempts. Please sign up again." });
+        } else {
+            res.status(400).json({ message: `Invalid code. ${MAX_VERIFICATION_ATTEMPTS - stored.attempts} attempt(s) remaining.` });
+        }
         return;
     }
 

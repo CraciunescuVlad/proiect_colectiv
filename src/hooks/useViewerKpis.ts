@@ -37,7 +37,7 @@ const useViewerKpis = (assignedTo: string | null, from?: Date, to?: Date) => {
                     params.append("to", formatDate(to));
                 }
 
-                const url = `http://localhost:3000/statistics/incidents/kpis?${params.toString()}`;
+                const url = `${import.meta.env.VITE_BACKEND_URL}/statistics/incidents/kpis?${params.toString()}`;
                 const response = await fetch(url, { headers: authHeaders() });
 
                 if (!response.ok) {

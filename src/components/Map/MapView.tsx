@@ -54,7 +54,7 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
         // Expunem funcția global pentru a putea fi apelata din HTML-ul injectat de Mapbox
         window.openAlarmDetails = async (alarmType: string) => {
             try {
-                const res = await fetch(`http://localhost:3000/map/alarm-type/${alarmType}`, { headers: authHeaders() });
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/map/alarm-type/${alarmType}`, { headers: authHeaders() });
                 const data = await res.json();
                 setSelectedAlarmInfo(data);
                 setIsModalOpen(true);

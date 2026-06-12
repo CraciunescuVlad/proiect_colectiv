@@ -19,7 +19,7 @@ const Login = () => {
         setError("");
 
         try {
-            const response = await fetch("http://localhost:3000/auth/login", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
@@ -45,7 +45,7 @@ const Login = () => {
         setResendSuccess(false);
         setError("");
         try {
-            const response = await fetch("http://localhost:3000/auth/resend-mfa", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/resend-mfa`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email }),
@@ -74,7 +74,7 @@ const Login = () => {
         setError("");
 
         try {
-            const response = await fetch("http://localhost:3000/auth/verify-mfa", {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/verify-mfa`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, code: mfaCode }),

@@ -53,7 +53,7 @@ const AssignedEmail = ({ userId }: { userId: string }) => {
         const fetch_user = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch(`http://localhost:3000/users/${userId}`, {
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users/${userId}`, {
                     headers: { "Authorization": `Bearer ${token}` },
                 });
                 const data = await res.json();
@@ -76,7 +76,7 @@ const IncidentMap = ({ siteId }: { siteId: string }) => {
     useEffect(() => {
         const fetchSite = async () => {
             try {
-                const res = await fetch(`http://localhost:3000/map/sites/${siteId}`, { headers: authHeaders() });
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/map/sites/${siteId}`, { headers: authHeaders() });
                 const data = await res.json();
                 setSite(data);
             } catch (err) {
@@ -150,10 +150,10 @@ const IncidentPage = () => {
             try {
                 const token = localStorage.getItem("token");
                 const [incidentRes, messagesRes] = await Promise.all([
-                    fetch(`http://localhost:3000/incidents/${id}`, {
+                    fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}`, {
                         headers: { "Authorization": `Bearer ${token}` },
                     }),
-                    fetch(`http://localhost:3000/incidents/${id}/messages`, {
+                    fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/messages`, {
                         headers: { "Authorization": `Bearer ${token}` },
                     }),
                 ]);
@@ -176,7 +176,7 @@ const IncidentPage = () => {
         setReportError(null);
         if (users.length > 0) return;
         try {
-            const res = await fetch("http://localhost:3000/users", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users`, {
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
             });
             const data = await res.json();
@@ -203,7 +203,7 @@ const IncidentPage = () => {
                 ? { recipient_email: reportEmailInput.trim() }
                 : { recipient_id: reportRecipient };
 
-            const res = await fetch(`http://localhost:3000/incidents/${id}/send-report`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/send-report`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -231,7 +231,7 @@ const IncidentPage = () => {
         setResolvingIncident(true);
         setResolveError(null);
         try {
-            const res = await fetch(`http://localhost:3000/incidents/${id}/resolve`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/resolve`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -269,7 +269,7 @@ const IncidentPage = () => {
         setSelectedAssignee("");
         if (users.length > 0) return;
         try {
-            const res = await fetch("http://localhost:3000/users", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users`, {
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
             });
             const data = await res.json();
@@ -283,7 +283,7 @@ const IncidentPage = () => {
         if (!incident || !selectedAssignee) return;
         setAssigning(true);
         try {
-            const res = await fetch(`http://localhost:3000/incidents/${id}/assign`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/assign`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -307,7 +307,7 @@ const IncidentPage = () => {
         setSendingMessage(true);
         setMessageError(null);
         try {
-            const res = await fetch(`http://localhost:3000/incidents/${id}/message`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/message`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
