@@ -539,7 +539,7 @@ app.patch("/incidents/:id/assign", requireAuth, requireAdmin, async (req: Reques
     }
 });
 
-app.get("/users", requireAuth, async (req: Request, res: Response) => {
+app.get("/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     const { data, error } = await supabase.auth.admin.listUsers();
 
     if (error) {

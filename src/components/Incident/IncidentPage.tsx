@@ -172,9 +172,11 @@ const IncidentPage = () => {
 
     const handleOpenReport = async () => {
         setShowReportPanel(true);
+        setReportMode(user?.role === "admin" ? "user" : "email");
         setReportSent(false);
         setReportError(null);
         if (users.length > 0) return;
+        if (user?.role !== "admin") return;
         try {
             const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users`, {
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
@@ -618,18 +620,23 @@ const IncidentPage = () => {
                                 <div className="flex flex-col gap-2">
                                     {/* Mode toggle */}
                                     <div className="flex rounded-lg overflow-hidden border border-white/10 text-xs">
-                                        <button
-                                            onClick={() => setReportMode("user")}
-                                            className={`flex-1 py-1.5 transition-colors ${reportMode === "user" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
-                                        >
-                                            Select user
-                                        </button>
-                                        <button
-                                            onClick={() => setReportMode("email")}
-                                            className={`flex-1 py-1.5 transition-colors ${reportMode === "email" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
-                                        >
-                                            Custom email
-                                        </button>
+                                        {user?.role === "admin" ? (
+                                            <><button
+                                                    onClick={() => setReportMode("user")}
+                                                    className={`flex-1 py-1.5 transition-colors ${reportMode === "user" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
+                                                >
+                                                    Select user
+                                                </button><button
+                                                    onClick={() => setReportMode("email")}
+                                                    className={`flex-1 py-1.5 transition-colors ${reportMode === "email" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
+                                                >
+                                                        Custom email
+                                                    </button></>
+                                        ): (<button
+                                            onClick={() => setReportMode("email")}                                        >
+                                            
+                                        </button>)}
+                                        
                                     </div>
 
                                     {reportMode === "user" ? (
