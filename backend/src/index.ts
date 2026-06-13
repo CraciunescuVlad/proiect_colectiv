@@ -431,7 +431,9 @@ app.get("/sites", requireAuth, async (req: Request, res: Response) => {
 
 // GET toate alarmele
 app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
-    const { data, error } = await supabase
+    const { all } = req.query;
+
+    let query = supabase
         .from("alarms")
         .select(`
             alarm_id,
@@ -441,15 +443,31 @@ app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
             tehnologie,
             type:alarm_types(reason),
             site:site(city, address)
-        `)
-        .is("resolved_time", null)
+        `);
 
-    if (error) {
-        res.status(500).json({ message: error.message })
-        return
+    if (!all) {
+        query = query.is("resolved_time", null);
     }
 
-    res.json(data)
+    const { data, error } = await query;
+
+    if (error) {
+        res.status(500).json({ message: error.message });
+        return;
+    }
+
+    // attach incident_id from junction table
+    const alarmIds = (data ?? []).map((a: any) => a.alarm_id);
+    const incidentByAlarm: Record<number, number> = {};
+    if (alarmIds.length > 0) {
+        const { data: links } = await supabase
+            .from("incident_alarms")
+            .select("alarm_id, incident_id")
+            .in("alarm_id", alarmIds);
+        (links ?? []).forEach((l: any) => { incidentByAlarm[l.alarm_id] = l.incident_id; });
+    }
+
+    res.json((data ?? []).map((a: any) => ({ ...a, incident_id: incidentByAlarm[a.alarm_id] ?? null })));
 })
 
 
@@ -457,26 +475,7 @@ app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
 // GET toate incidentele
 app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
     const { status } = req.query;
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-        res.status(401).json({ message: "No token provided" });
-        return;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) {
-        res.status(401).json({ message: "Invalid token" });
-        return;
-    }
-
-    const { data: roleData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userData.user.id)
-        .single();
-
-    const isAdmin = roleData?.role === "admin";
+    const isAdmin = req.user!.role === "admin";
 
     let query = supabase
         .from("incidents")
@@ -488,7 +487,7 @@ app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
 
     // non-admin users only see their own incidents
     if (!isAdmin) {
-        query = query.eq("assigned_to", userData.user.id);
+        query = query.eq("assigned_to", req.user!.id);
     }
 
     const { data, error } = await query;
@@ -498,7 +497,21 @@ app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
         return;
     }
 
-    res.json(data);
+    // attach alarm_ids from junction table
+    const incidentIds = (data ?? []).map((i: any) => i.incident_id);
+    const alarmsByIncident: Record<number, number[]> = {};
+    if (incidentIds.length > 0) {
+        const { data: links } = await supabase
+            .from("incident_alarms")
+            .select("incident_id, alarm_id")
+            .in("incident_id", incidentIds);
+        (links ?? []).forEach((l: any) => {
+            if (!alarmsByIncident[l.incident_id]) alarmsByIncident[l.incident_id] = [];
+            alarmsByIncident[l.incident_id].push(l.alarm_id);
+        });
+    }
+
+    res.json((data ?? []).map((i: any) => ({ ...i, alarm_ids: alarmsByIncident[i.incident_id] ?? [] })));
 });
 
 //incidente active
@@ -699,27 +712,9 @@ app.get("/users/:id", requireAuth, async (req: Request, res: Response) => {
 app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
     const { message } = req.body;
-    const token = req.headers.authorization?.split(" ")[1];
+    
 
-    if (!token) {
-        res.status(401).json({ message: "No token provided" });
-        return;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !userData.user) {
-        res.status(401).json({ message: "Invalid token" });
-        return;
-    }
-
-    const { data: roleData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userData.user.id)
-        .single();
-
-    if (roleData?.role !== "admin") {
+    if (req.user!.role !== "admin") {
         res.status(403).json({ message: "Only admins can edit messages" });
         return;
     }
@@ -728,7 +723,7 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
 
     const { error: insertError } = await supabase
         .from("messages")
-        .insert({ id_incident: parseInt(id as string), id_user: userData.user.id, time: now, message });
+        .insert({ id_incident: parseInt(id as string), id_user: req.user!.id, time: now, message });
 
     if (insertError) {
         res.status(500).json({ message: insertError.message });
@@ -753,14 +748,14 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
     (async () => {
         try {
             const assignedTo = data?.assigned_to;
-            if (!assignedTo || assignedTo === userData.user.id) return;
+            if (!assignedTo || assignedTo === req.user!.id) return;
 
             const { data: assigneeAuth } = await supabase.auth.admin.getUserById(assignedTo);
             const assigneeEmail = assigneeAuth?.user?.email;
             if (!assigneeEmail) return;
 
             const { site } = await getIncidentEmailData(id as string);
-            const senderEmail = userData.user.email ?? "an admin";
+            const senderEmail = req.user!.email ?? "an admin";
             const html = buildNewMessageEmail(id as string, site, message, senderEmail);
             await sendHtmlEmail(assigneeEmail, `[AlarmUP] New message on INC${id}`, html);
         } catch (err) {
@@ -1017,6 +1012,102 @@ app.get("/incidents/:id", requireAuth, async (req: Request, res: Response) => {
         .in("alarm_id", alarmIds);
 
     res.json({ ...incident, alarms: alarms ?? [] });
+});
+
+// ── Admin History endpoints (paginated, server-side filtered) ────────────────
+
+app.get("/admin/history/incidents", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const isExport = req.query.export === "1";
+    const page     = Math.max(0, parseInt(req.query.page     as string) || 0);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 25));
+    const { priority, status, from, to, sortField, sortDir, id } = req.query;
+
+    let query = supabase
+        .from("incidents")
+        .select("incident_id, status, start_time, end_time, priority, assigned_to, messages", { count: "exact" });
+
+    if (id)                         query = query.eq("incident_id", parseInt(id as string));
+    if (priority)                   query = query.eq("priority", priority as string);
+    if (status === "active")        query = query.eq("status", 1);
+    else if (status === "resolved") query = query.neq("status", 1);
+    if (from)                       query = query.gte("start_time", from as string);
+    if (to)                         query = query.lte("start_time", to as string);
+
+    const validSort: Record<string, string> = { start_time: "start_time", end_time: "end_time", priority: "priority" };
+    const col = validSort[sortField as string] ?? "start_time";
+    query = query.order(col, { ascending: sortDir === "asc", nullsFirst: false });
+    if (!isExport) query = query.range(page * pageSize, (page + 1) * pageSize - 1);
+
+    const { data, count, error } = await query;
+    if (error) { res.status(500).json({ message: error.message }); return; }
+
+    const incidentIds = (data ?? []).map((i: any) => i.incident_id);
+    const alarmsByIncident: Record<number, number[]> = {};
+    if (incidentIds.length > 0) {
+        const { data: links } = await supabase
+            .from("incident_alarms")
+            .select("incident_id, alarm_id")
+            .in("incident_id", incidentIds);
+        (links ?? []).forEach((l: any) => {
+            if (!alarmsByIncident[l.incident_id]) alarmsByIncident[l.incident_id] = [];
+            alarmsByIncident[l.incident_id].push(l.alarm_id);
+        });
+    }
+
+    res.json({
+        data: (data ?? []).map((i: any) => ({ ...i, alarm_ids: alarmsByIncident[i.incident_id] ?? [] })),
+        total: count ?? 0,
+    });
+});
+
+app.get("/admin/history/alarms", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const isExport = req.query.export === "1";
+    const page     = Math.max(0, parseInt(req.query.page     as string) || 0);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 25));
+    const { tech, from, to, sortField, sortDir, id, problem } = req.query;
+
+    let typeIds: number[] | null = null;
+    if (problem) {
+        const { data: typeRows } = await supabase
+            .from("alarm_types")
+            .select("id")
+            .ilike("reason", `%${problem as string}%`);
+        typeIds = (typeRows ?? []).map((t: any) => t.id);
+        if (typeIds.length === 0) { res.json({ data: [], total: 0 }); return; }
+    }
+
+    let query = supabase
+        .from("alarms")
+        .select(`alarm_id, status, start_time, resolved_time, tehnologie, type:alarm_types(reason), site:site(city, address)`, { count: "exact" });
+
+    if (id)               query = query.eq("alarm_id", parseInt(id as string));
+    if (tech)             query = query.eq("tehnologie", tech as string);
+    if (typeIds !== null) query = query.in("type", typeIds);
+    if (from)             query = query.gte("start_time", from as string);
+    if (to)               query = query.lte("start_time", to as string);
+
+    const validSort: Record<string, string> = { start_time: "start_time", resolved_time: "resolved_time" };
+    const col = validSort[sortField as string] ?? "start_time";
+    query = query.order(col, { ascending: sortDir === "asc", nullsFirst: false });
+    if (!isExport) query = query.range(page * pageSize, (page + 1) * pageSize - 1);
+
+    const { data, count, error } = await query;
+    if (error) { res.status(500).json({ message: error.message }); return; }
+
+    const alarmIds = (data ?? []).map((a: any) => a.alarm_id);
+    const incidentByAlarm: Record<number, number> = {};
+    if (alarmIds.length > 0) {
+        const { data: links } = await supabase
+            .from("incident_alarms")
+            .select("alarm_id, incident_id")
+            .in("alarm_id", alarmIds);
+        (links ?? []).forEach((l: any) => { incidentByAlarm[l.alarm_id] = l.incident_id; });
+    }
+
+    res.json({
+        data: (data ?? []).map((a: any) => ({ ...a, incident_id: incidentByAlarm[a.alarm_id] ?? null })),
+        total: count ?? 0,
+    });
 });
 
 // ── Admin Request endpoints ──────────────────────────────────────────────────

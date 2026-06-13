@@ -8,6 +8,7 @@ export interface Incident {
     assigned_to: string | null;
     messages: string | null;
     priority: string;
+    alarm_ids?: number[];
 }
 
 const useIncidents = () => {
