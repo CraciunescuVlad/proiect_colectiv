@@ -224,7 +224,7 @@ app.post("/auth/login", async (req: Request, res: Response) => {
                 res.status(403).json({ message: "Account locked due to too many failed attempts. Contact an administrator." });
             } else {
                 await supabase.from("profiles").update({ failed_login_attempts: newAttempts }).eq("id", user.id);
-                res.status(401).json({ message: `Invalid email or password. ${MAX_LOGIN_ATTEMPTS - newAttempts} attempt(s) remaining.` });
+                res.status(401).json({ message: `Invalid email or password.` });
             }
         } else {
             res.status(401).json({ message: "Invalid email or password." });
@@ -641,19 +641,19 @@ app.post("/users/create-by-admin", requireAuth, requireAdmin, async (req: Reques
     const siteUrl = process.env.SITE_URL || "https://example.com";
 
     try {
-        await sendHtmlEmail(email, `Your ${siteName} account has been created`, `
+        await sendHtmlEmail(email, `Your ${escapeHtml(siteName)} account has been created`, `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:480px;margin:auto;border-radius:12px;">
-    <h2 style="color:#fff;margin-bottom:4px;">Welcome to ${siteName}!</h2>
+    <h2 style="color:#fff;margin-bottom:4px;">Welcome to ${escapeHtml(siteName)}!</h2>
     <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
         An account has been created for you on
-        <a href="${siteUrl}" style="color:#a78bfa;">${siteName}</a>.
+        <a href="${siteUrl}" style="color:#a78bfa;">${escapeHtml(siteName)}</a>.
         Use the credentials below to sign in.
     </p>
     <div style="background:#1a1030;border:1px solid #2d1f4e;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
         <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Username (email)</p>
-        <p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#e2e8f0;">${email}</p>
+        <p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#e2e8f0;">${escapeHtml(email)}</p>
         <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Auto-generated password</p>
-        <p style="margin:0;font-size:20px;font-weight:700;letter-spacing:3px;color:#a78bfa;font-family:monospace;">${plainPassword}</p>
+        <p style="margin:0;font-size:20px;font-weight:700;letter-spacing:3px;color:#a78bfa;font-family:monospace;">${escapeHtml(plainPassword)}</p>
     </div>
     <p style="color:#f87171;font-size:12px;margin:0 0 24px;">
         Please change your password immediately after your first sign in.
@@ -1218,7 +1218,7 @@ app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => 
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#fff;margin-bottom:4px;">New Admin Access Request</h2>
   <p style="color:#e2e8f0;margin-top:0;">A user has requested elevated admin access on AlarmUP.</p>
-  <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${requesterEmail}</p>
+  <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${escapeHtml(requesterEmail)}</p>
   <p style="color:#94a3b8;font-size:13px;margin-top:8px;">Admin privileges allow the user to manage incidents, assign responders, approve or reject access requests, and send reports.</p>
   <p style="color:#94a3b8;font-size:12px;margin-top:24px;">Log in to AlarmUP to approve or reject this request.</p>
 </div>`);
