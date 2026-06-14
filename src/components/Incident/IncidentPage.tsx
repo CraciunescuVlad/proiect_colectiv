@@ -356,11 +356,11 @@ const IncidentPage = () => {
 
             {/* Back button */}
             <button
-                onClick={() => navigate("/home")}
+                onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-white/40 hover:text-white text-sm mb-8 transition-colors w-fit"
             >
                 <ArrowLeft size={16} />
-                Back to dashboard
+                Back
             </button>
 
             {/* Header */}
