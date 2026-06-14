@@ -46,7 +46,7 @@ const useChartData = (endpoint: string, from?: Date, to?: Date, siteIds?: string
                     params.append("granularity", granularity);
                 }
 
-                let url = `http://localhost:3000/statistics/${endpoint}`;
+                let url = `${import.meta.env.VITE_BACKEND_URL}/statistics/${endpoint}`;
                 const qs = params.toString();
                 if (qs !== "") {
                     url += `?${qs}`;

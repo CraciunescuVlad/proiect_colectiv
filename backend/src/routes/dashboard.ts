@@ -15,7 +15,8 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
             .gte("start_time", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
 
         if (error) {
-            res.status(500).json({ message: error.message })
+            console.error(error);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -47,7 +48,8 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
             .gte("start_time", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
 
         if (error) {
-            res.status(500).json({ message: error.message })
+            console.error(error);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -90,7 +92,8 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
             supabase.from("incidents").select("start_time, end_time").eq("status", 0).not("end_time", "is", null).range(0, 9999)        ])
 
         if (resolvedError) {
-            res.status(500).json({ message: resolvedError.message })
+            console.error(resolvedError);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 

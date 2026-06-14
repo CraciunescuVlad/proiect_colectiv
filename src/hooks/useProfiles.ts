@@ -28,7 +28,7 @@ const useProfiles = () => {
         const fetchProfiles = async () => {
             try {
                 setLoading(true);
-                const response = await fetch("http://localhost:3000/statistics/profiles", {
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/statistics/profiles`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 

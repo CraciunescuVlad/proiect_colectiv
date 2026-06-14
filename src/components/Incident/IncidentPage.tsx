@@ -53,7 +53,7 @@ const AssignedEmail = ({ userId }: { userId: string }) => {
         const fetch_user = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch(`http://localhost:3000/users/${userId}`, {
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users/${userId}`, {
                     headers: { "Authorization": `Bearer ${token}` },
                 });
                 const data = await res.json();
@@ -76,7 +76,7 @@ const IncidentMap = ({ siteId }: { siteId: string }) => {
     useEffect(() => {
         const fetchSite = async () => {
             try {
-                const res = await fetch(`http://localhost:3000/map/sites/${siteId}`, { headers: authHeaders() });
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/map/sites/${siteId}`, { headers: authHeaders() });
                 const data = await res.json();
                 setSite(data);
             } catch (err) {
@@ -150,10 +150,10 @@ const IncidentPage = () => {
             try {
                 const token = localStorage.getItem("token");
                 const [incidentRes, messagesRes] = await Promise.all([
-                    fetch(`http://localhost:3000/incidents/${id}`, {
+                    fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}`, {
                         headers: { "Authorization": `Bearer ${token}` },
                     }),
-                    fetch(`http://localhost:3000/incidents/${id}/messages`, {
+                    fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/messages`, {
                         headers: { "Authorization": `Bearer ${token}` },
                     }),
                 ]);
@@ -172,11 +172,13 @@ const IncidentPage = () => {
 
     const handleOpenReport = async () => {
         setShowReportPanel(true);
+        setReportMode(user?.role === "admin" ? "user" : "email");
         setReportSent(false);
         setReportError(null);
         if (users.length > 0) return;
+        if (user?.role !== "admin") return;
         try {
-            const res = await fetch("http://localhost:3000/users", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users`, {
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
             });
             const data = await res.json();
@@ -191,6 +193,11 @@ const IncidentPage = () => {
         if (isEmailMode && !reportEmailInput.trim()) return;
         if (!isEmailMode && !reportRecipient) return;
 
+        if (isEmailMode && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reportEmailInput.trim())) {
+            setReportError("Please enter a valid email address.");
+            return;
+        }
+
         setSendingReport(true);
         setReportError(null);
         try {
@@ -198,7 +205,7 @@ const IncidentPage = () => {
                 ? { recipient_email: reportEmailInput.trim() }
                 : { recipient_id: reportRecipient };
 
-            const res = await fetch(`http://localhost:3000/incidents/${id}/send-report`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/send-report`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -226,7 +233,7 @@ const IncidentPage = () => {
         setResolvingIncident(true);
         setResolveError(null);
         try {
-            const res = await fetch(`http://localhost:3000/incidents/${id}/resolve`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/resolve`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -264,7 +271,7 @@ const IncidentPage = () => {
         setSelectedAssignee("");
         if (users.length > 0) return;
         try {
-            const res = await fetch("http://localhost:3000/users", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users`, {
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
             });
             const data = await res.json();
@@ -278,7 +285,7 @@ const IncidentPage = () => {
         if (!incident || !selectedAssignee) return;
         setAssigning(true);
         try {
-            const res = await fetch(`http://localhost:3000/incidents/${id}/assign`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/assign`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -302,7 +309,7 @@ const IncidentPage = () => {
         setSendingMessage(true);
         setMessageError(null);
         try {
-            const res = await fetch(`http://localhost:3000/incidents/${id}/message`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${id}/message`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -349,11 +356,11 @@ const IncidentPage = () => {
 
             {/* Back button */}
             <button
-                onClick={() => navigate("/home")}
+                onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-white/40 hover:text-white text-sm mb-8 transition-colors w-fit"
             >
                 <ArrowLeft size={16} />
-                Back to dashboard
+                Back
             </button>
 
             {/* Header */}
@@ -613,18 +620,23 @@ const IncidentPage = () => {
                                 <div className="flex flex-col gap-2">
                                     {/* Mode toggle */}
                                     <div className="flex rounded-lg overflow-hidden border border-white/10 text-xs">
-                                        <button
-                                            onClick={() => setReportMode("user")}
-                                            className={`flex-1 py-1.5 transition-colors ${reportMode === "user" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
-                                        >
-                                            Select user
-                                        </button>
-                                        <button
-                                            onClick={() => setReportMode("email")}
-                                            className={`flex-1 py-1.5 transition-colors ${reportMode === "email" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
-                                        >
-                                            Custom email
-                                        </button>
+                                        {user?.role === "admin" ? (
+                                            <><button
+                                                    onClick={() => setReportMode("user")}
+                                                    className={`flex-1 py-1.5 transition-colors ${reportMode === "user" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
+                                                >
+                                                    Select user
+                                                </button><button
+                                                    onClick={() => setReportMode("email")}
+                                                    className={`flex-1 py-1.5 transition-colors ${reportMode === "email" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
+                                                >
+                                                        Custom email
+                                                    </button></>
+                                        ): (<button
+                                            onClick={() => setReportMode("email")}                                        >
+                                            
+                                        </button>)}
+                                        
                                     </div>
 
                                     {reportMode === "user" ? (

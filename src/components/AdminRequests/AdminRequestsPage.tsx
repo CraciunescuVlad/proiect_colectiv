@@ -47,10 +47,10 @@ const AdminRequestsPage = () => {
             try {
                 if (isAdmin) {
                     const [reqRes, lockedRes] = await Promise.all([
-                        fetch("http://localhost:3000/admin-requests", {
+                        fetch(`${import.meta.env.VITE_BACKEND_URL}/admin-requests`, {
                             headers: { Authorization: `Bearer ${token()}` },
                         }),
-                        fetch("http://localhost:3000/admin/locked-users", {
+                        fetch(`${import.meta.env.VITE_BACKEND_URL}/admin/locked-users`, {
                             headers: { Authorization: `Bearer ${token()}` },
                         }),
                     ]);
@@ -59,7 +59,7 @@ const AdminRequestsPage = () => {
                     setRequests(Array.isArray(data) ? data : []);
                     setLockedUsers(Array.isArray(locked) ? locked : []);
                 } else {
-                    const res = await fetch("http://localhost:3000/admin-requests/my", {
+                    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/admin-requests/my`, {
                         headers: { Authorization: `Bearer ${token()}` },
                     });
                     const data = await res.json();
@@ -76,7 +76,7 @@ const AdminRequestsPage = () => {
         setSubmitting(true);
         setError(null);
         try {
-            const res = await fetch("http://localhost:3000/admin-requests", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/admin-requests`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token()}` },
             });
@@ -84,7 +84,7 @@ const AdminRequestsPage = () => {
             if (res.ok) {
                 setMyRequest(data);
             } else if (res.status === 409) {
-                const myRes = await fetch("http://localhost:3000/admin-requests/my", {
+                const myRes = await fetch(`${import.meta.env.VITE_BACKEND_URL}/admin-requests/my`, {
                     headers: { Authorization: `Bearer ${token()}` },
                 });
                 const myData = await myRes.json();
@@ -102,7 +102,7 @@ const AdminRequestsPage = () => {
     const handleDecision = async (id: number, action: "approve" | "reject") => {
         setActionId(id);
         try {
-            await fetch(`http://localhost:3000/admin-requests/${id}/${action}`, {
+            await fetch(`${import.meta.env.VITE_BACKEND_URL}/admin-requests/${id}/${action}`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token()}` },
             });
@@ -115,7 +115,7 @@ const AdminRequestsPage = () => {
     const handleUnlock = async (userId: string) => {
         setUnlockingId(userId);
         try {
-            const res = await fetch(`http://localhost:3000/admin/users/${userId}/unlock`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/admin/users/${userId}/unlock`, {
                 method: "PATCH",
                 headers: { Authorization: `Bearer ${token()}` },
             });
@@ -145,7 +145,7 @@ const AdminRequestsPage = () => {
 
         setCreating(true);
         try {
-            const res = await fetch("http://localhost:3000/users/create-by-admin", {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users/create-by-admin`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

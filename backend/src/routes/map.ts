@@ -12,7 +12,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .select("id, latitudine, longitude, city, address")
 
         if (error) {
-            res.status(500).json({ message: error.message })
+            console.error(error);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -65,7 +66,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .eq("status", 1) // only active alarms
 
         if (error) {
-            res.status(500).json({ message: error.message })
+            console.error(error);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -83,7 +85,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .gte("start_time", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
 
         if (error) {
-            res.status(500).json({ message: error.message })
+            console.error(error);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -119,7 +122,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .eq("site", id)
 
         if (alarmsError) {
-            res.status(500).json({ message: alarmsError.message })
+            console.error(alarmsError);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -137,7 +141,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .in("alarm_id", alarmIds)
 
         if (incidentAlarmsError) {
-            res.status(500).json({ message: incidentAlarmsError.message })
+            console.error(incidentAlarmsError);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -156,7 +161,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .gte("start_time", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
 
         if (error) {
-            res.status(500).json({ message: error.message })
+            console.error(error);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -189,7 +195,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .eq("status", 1)
 
         if (incError) {
-            res.status(500).json({ message: incError.message })
+            console.error(incError);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
         if (!incidents || incidents.length === 0) {
@@ -205,7 +212,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .in("incident_id", incidentIds)
 
         if (iaError) {
-            res.status(500).json({ message: iaError.message })
+            console.error(iaError);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -218,7 +226,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
             .in("alarm_id", alarmIds)
 
         if (alarmError) {
-            res.status(500).json({ message: alarmError.message })
+            console.error(alarmError);
+            res.status(500).json({ message: "Something went wrong." })
             return
         }
 
@@ -263,7 +272,8 @@ const createMapRouter = (supabase: SupabaseClient) => {
 
             res.json(standaloneAlarms);
         } catch (error: any) {
-            res.status(500).json({ message: error.message });
+            console.error(error);
+            res.status(500).json({ message: "Something went wrong." });
         }
     });
 

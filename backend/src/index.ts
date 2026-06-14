@@ -1,6 +1,7 @@
 import express from "express";
 import type { Request, Response } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
@@ -8,16 +9,29 @@ import cron from "node-cron";
 import { exec } from "child_process";
 import createDashboardRouter from "./routes/dashboard";
 import createMapRouter from "./routes/map";
-import createUsersRouter from "./routes/users";
+//import createUsersRouter from "./routes/users";
 import createStatisticsRouter from "./routes/statistics";
 import { requireAdmin, requireAuth } from "./middleware/auth";
 import crypto from "crypto";
+import  rateLimit from "express-rate-limit";
 
 dotenv.config();
 
 const app = express();
+app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
+
+// For production and testing they can be deactivatet temporarely
+// Limit number of login and signup for a certain IP to prevent brute-force attacks - 20 requests per 15 minutes
+const limiterAuth=rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, message: "Too many requests from this IP, please try again later." });
+app.use("/auth",limiterAuth);
+// Limit number of admin actions to prevent abuse (e.g., mass user creation) - 20 attempts per 15 minutes per IP
+const limiterAdmin=rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, message: "Too many requests from this IP, please try again later." });
+app.use("/admin",limiterAdmin);
+// limit the general API usage to prevent abuse - 250 requests per 15 minutes per IP
+const limiterGeneral=rateLimit({ windowMs: 15 * 60 * 1000, limit: 250, message: "Too many requests from this IP, please try again later." });
+app.use(limiterGeneral);
 
 // Supabase client (service role — backend only)
 const supabase = createClient(
@@ -25,11 +39,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
 const emailTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
+  port: smtpPort,
+  secure: smtpPort === 465,
+  requireTLS: smtpPort !== 465,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  tls: { rejectUnauthorized: true },
 });
 
 const sendEmail = (to: string, subject: string, text: string) =>
@@ -79,19 +96,19 @@ function buildAssignmentEmail(incidentId: string, incident: any, alarms: any[], 
         ? `<img src="${staticMapUrl(site.latitudine, site.longitude)}" width="600" style="border-radius:8px;display:block;margin:16px 0;" alt="Incident location"/>`
         : "";
     const alarmRows = alarms.map(a =>
-        `<tr><td style="padding:6px 10px;color:#94a3b8;">${a.tehnologie} · ${a.type}</td><td style="padding:6px 10px;color:#94a3b8;">${a.site}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
+        `<tr><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.tehnologie)} · ${escapeHtml(a.type)}</td><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.site)}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
     ).join("");
 
     return `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#fff;margin-bottom:4px;">You've been assigned to an incident</h2>
-  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${incidentId}</strong></p>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${escapeHtml(incidentId)}</strong></p>
 
   <table style="width:100%;border-collapse:collapse;margin:20px 0;">
-    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${incident?.priority ?? "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${incident?.status === 1 ? "#f87171" : "#4ade80"};">${incident?.status === 1 ? "Active" : "Resolved"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${site.city ?? ""} — ${site.address ?? ""}` : "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${escapeHtml(incident?.priority ?? "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${escapeHtml(incident?.status === 1 ? "#f87171" : "#4ade80")};">${escapeHtml(incident?.status === 1 ? "Active" : "Resolved")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${escapeHtml(incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${escapeHtml(site.city ?? "")} — ${escapeHtml(site.address ?? "")}` : "—"}</td></tr>
   </table>
 
   ${mapImg}
@@ -111,6 +128,18 @@ function buildAssignmentEmail(incidentId: string, incident: any, alarms: any[], 
 </div>`;
 }
 
+function escapeHtml(text: string): string {
+    const FORBIDDEN_CHARACTERS: { [key: string]: string } = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+    };
+    return text.replace(/[&<>"']/g, (c) => FORBIDDEN_CHARACTERS[c]);
+}
+
+
 function buildNewMessageEmail(incidentId: string, site: any, messageText: string, senderEmail: string): string {
     const mapImg = site
         ? `<img src="${staticMapUrl(site.latitudine, site.longitude)}" width="600" style="border-radius:8px;display:block;margin:16px 0;" alt="Incident location"/>`
@@ -118,38 +147,33 @@ function buildNewMessageEmail(incidentId: string, site: any, messageText: string
     return `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#fff;margin-bottom:4px;">New message on your incident</h2>
-  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${incidentId}</strong></p>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${escapeHtml(incidentId)}</strong></p>
 
   <div style="background:#1a1030;border-left:3px solid #a78bfa;padding:14px 18px;border-radius:6px;margin:20px 0;">
-    <p style="color:#94a3b8;font-size:12px;margin:0 0 6px;">From: ${senderEmail}</p>
-    <p style="color:#e2e8f0;margin:0;">${messageText}</p>
+    <p style="color:#94a3b8;font-size:12px;margin:0 0 6px;">From: ${escapeHtml(senderEmail)}</p>
+    <p style="color:#e2e8f0;margin:0;">${escapeHtml(messageText)}</p>
   </div>
 
-  ${site ? `<p style="color:#6b7280;font-size:13px;">Location: ${site.city ?? ""} ${site.address ?? ""}</p>` : ""}
+  ${site ? `<p style="color:#6b7280;font-size:13px;">Location: ${escapeHtml(site.city ?? "")} ${escapeHtml(site.address ?? "")}</p>` : ""}
   ${mapImg}
 
   <p style="color:#4b5563;font-size:12px;margin-top:24px;">AlarmUP · This is an automated notification</p>
 </div>`;
 }
 
-type SignupEntry = { userId: string; otp: string; expiry: number };
+type SignupEntry = { userId: string; otp: string; expiry: number; attempts: number };
 const signupStore = new Map<string, SignupEntry>();
 
-type MfaEntry = { code: string; expiry: number; session: any; attempts: number };
+type MfaEntry = { code: string; expiry: number; session: any };
 const mfaStore = new Map<string, MfaEntry>();
 
 const MAX_LOGIN_ATTEMPTS = 3;
-type LoginAttemptEntry = { attempts: number; lockedUntil: number };
-const loginAttemptStore = new Map<string, LoginAttemptEntry>();
 
 async function getUserByEmail(email: string) {
     const { data } = await supabase.auth.admin.listUsers();
     return data?.users?.find(u => u.email === email) ?? null;
 }
 
-async function lockAccountInDb(userId: string): Promise<void> {
-    await supabase.from("profiles").update({ locked: true }).eq("id", userId);
-}
 
 app.use("/dashboard", requireAuth, createDashboardRouter(supabase));
 app.use("/map", requireAuth, createMapRouter(supabase));
@@ -174,33 +198,40 @@ const runScript = () => {
 //
 // cron.schedule("*/5 * * * *", runScript);
 // runScript();
+
 app.post("/auth/login", async (req: Request, res: Response) => {
     const { email, password } = req.body;
-
-    const attempt = loginAttemptStore.get(email);
-    if (attempt && attempt.lockedUntil > Date.now()) {
-        res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
-        return;
-    }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.session) {
-        const current = loginAttemptStore.get(email) ?? { attempts: 0, lockedUntil: 0 };
-        const newAttempts = current.attempts + 1;
-        if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
-            loginAttemptStore.set(email, { attempts: newAttempts, lockedUntil: Number.MAX_SAFE_INTEGER });
-            const user = await getUserByEmail(email);
-            if (user) await lockAccountInDb(user.id);
-            res.status(403).json({ message: "Account locked due to too many failed attempts. Contact an administrator." });
+        const user = await getUserByEmail(email);
+        if (user) {
+            const { data: profile } = await supabase
+                .from("profiles")
+                .select("locked, failed_login_attempts")
+                .eq("id", user.id)
+                .single();
+
+            if (profile?.locked) {
+                res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
+                return;
+            }
+
+            const newAttempts = (profile?.failed_login_attempts ?? 0) + 1;
+            if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+                await supabase.from("profiles").update({ failed_login_attempts: newAttempts, locked: true }).eq("id", user.id);
+                res.status(403).json({ message: "Account locked due to too many failed attempts. Contact an administrator." });
+            } else {
+                await supabase.from("profiles").update({ failed_login_attempts: newAttempts }).eq("id", user.id);
+                res.status(401).json({ message: `Invalid email or password.` });
+            }
         } else {
-            loginAttemptStore.set(email, { attempts: newAttempts, lockedUntil: 0 });
-            res.status(401).json({ message: `Invalid email or password. ${MAX_LOGIN_ATTEMPTS - newAttempts} attempt(s) remaining.` });
+            res.status(401).json({ message: "Invalid email or password." });
         }
         return;
     }
 
-    // Safety net: check DB lock even after a successful password (covers server restarts)
     const { data: profile } = await supabase
         .from("profiles")
         .select("locked")
@@ -208,15 +239,12 @@ app.post("/auth/login", async (req: Request, res: Response) => {
         .single();
 
     if (profile?.locked) {
-        loginAttemptStore.set(email, { attempts: MAX_LOGIN_ATTEMPTS, lockedUntil: Number.MAX_SAFE_INTEGER });
         res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
         return;
     }
 
-    loginAttemptStore.delete(email);
-
     const code = crypto.randomInt(100000, 1000000).toString();
-    mfaStore.set(email, { code, expiry: Date.now() + 5 * 60 * 1000, session: data.session, attempts: 0 });
+    mfaStore.set(email, { code, expiry: Date.now() + 5 * 60 * 1000, session: data.session });
 
     try {
         await sendEmail(
@@ -232,6 +260,44 @@ app.post("/auth/login", async (req: Request, res: Response) => {
     res.json({ mfaRequired: true });
 });
 
+app.post("/auth/resend-mfa", async (req: Request, res: Response) => {
+    const { email } = req.body;
+
+    const stored = mfaStore.get(email);
+    if (!stored) {
+        res.status(400).json({ message: "No pending login. Please log in again." });
+        return;
+    }
+
+    const { data: resendProfile } = await supabase
+        .from("profiles")
+        .select("locked")
+        .eq("id", stored.session.user.id)
+        .single();
+
+    if (resendProfile?.locked) {
+        mfaStore.delete(email);
+        res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
+        return;
+    }
+
+    const newCode = crypto.randomInt(100000, 1000000).toString();
+    mfaStore.set(email, { ...stored, code: newCode, expiry: Date.now() + 5 * 60 * 1000 });
+
+    try {
+        await sendEmail(
+            email,
+            "AlarmUP Login Verification",
+            `Your new login verification code is: ${newCode}\n\nThis code expires in 5 minutes.`
+        );
+    } catch {
+        res.status(500).json({ message: "Failed to send email. Please try again." });
+        return;
+    }
+
+    res.json({ message: "A new code has been sent." });
+});
+
 app.post("/auth/verify-mfa", async (req: Request, res: Response) => {
     const { email, code } = req.body;
 
@@ -240,41 +306,83 @@ app.post("/auth/verify-mfa", async (req: Request, res: Response) => {
         res.status(400).json({ message: "No pending login. Please log in again." });
         return;
     }
+
+    const { data: mfaProfile } = await supabase
+        .from("profiles")
+        .select("locked, failed_mfa")
+        .eq("id", stored.session.user.id)
+        .single();
+
+    if (mfaProfile?.locked) {
+        mfaStore.delete(email);
+        res.status(403).json({ message: "Account locked. Contact an administrator to unlock it." });
+        return;
+    }
+
     if (Date.now() > stored.expiry) {
         mfaStore.delete(email);
         res.status(400).json({ message: "Code expired. Please log in again." });
         return;
     }
     if (stored.code !== code) {
-        stored.attempts += 1;
-        if (stored.attempts >= MAX_LOGIN_ATTEMPTS) {
+        const newAttempts = (mfaProfile?.failed_mfa ?? 0) + 1;
+        if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
             mfaStore.delete(email);
-            res.status(400).json({ message: "Too many failed attempts. Please log in again." });
+            await supabase.from("profiles").update({ failed_mfa: newAttempts, locked: true }).eq("id", stored.session.user.id);
+            res.status(403).json({ message: "Account locked due to too many failed attempts. Contact an administrator." });
         } else {
-            res.status(400).json({ message: `Invalid code. ${MAX_LOGIN_ATTEMPTS - stored.attempts} attempt(s) remaining.` });
+            await supabase.from("profiles").update({ failed_mfa: newAttempts }).eq("id", stored.session.user.id);
+            res.status(400).json({ message: `Invalid code. ${MAX_LOGIN_ATTEMPTS - newAttempts} attempt(s) remaining.` });
         }
         return;
     }
 
     mfaStore.delete(email);
 
-    const [profileResult, freshUserResult] = await Promise.all([
+    await supabase.from("profiles").update({ failed_login_attempts: 0, failed_mfa: 0 }).eq("id", stored.session.user.id);
+
+    try{
+        const [profileResult, freshUserResult] = await Promise.all([
         supabase.from("profiles").select("role").eq("id", stored.session.user.id).single(),
         supabase.auth.admin.getUserById(stored.session.user.id),
-    ]);
-
-    const role = profileResult.data?.role ?? "viewer";
-    const mustChangePassword = freshUserResult.data?.user?.app_metadata?.must_change_password === true;
-
-    res.json({
+        ]);
+        const role = profileResult.data?.role ?? "viewer";
+        const mustChangePassword = freshUserResult.data?.user?.app_metadata?.must_change_password === true;
+        res.json({
         token: stored.session.access_token,
         user: { id: stored.session.user.id, email: stored.session.user.email, role },
         mustChangePassword,
     });
+    } catch (err) {
+        console.error("Failed to fetch user profile or metadata:", err);
+        res.status(500).json({ message: "Something went wrong. Please try again." });
+        return;
+    }
+
 });
 
 app.post("/auth/signup", async (req: Request, res: Response) => {
     const { email, password } = req.body;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        res.status(400).json({ message: "Email invalid." });
+        return;
+    }
+
+    if (!password || password.length < 8) {
+        res.status(400).json({ message: "Password must be at least 8 characters." });
+        return;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+        res.status(400).json({ message: "Password must contain at least one uppercase letter." });
+        return;
+    }
+
+    if (!/[0-9]/.test(password)) {
+        res.status(400).json({ message: "Password must contain at least one number." });
+        return;
+    }
 
     const { data, error } = await supabase.auth.admin.generateLink({
         type: "signup",
@@ -283,12 +391,13 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
     });
 
     if (error) {
-        res.status(400).json({ message: error.message });
+        console.error(error);
+        res.status(400).json({ message: "Something went wrong. Please try again." });
         return;
     }
 
     const otp = data.properties.email_otp;
-    signupStore.set(email, { userId: data.user.id, otp, expiry: Date.now() + 5 * 60 * 1000 });
+    signupStore.set(email, { userId: data.user.id, otp, expiry: Date.now() + 5 * 60 * 1000, attempts: 0 });
 
     try {
         await sendEmail(
@@ -306,6 +415,7 @@ app.post("/auth/signup", async (req: Request, res: Response) => {
 
 app.post("/auth/verify-email", async (req: Request, res: Response) => {
     const { email, otp } = req.body;
+    const MAX_VERIFICATION_ATTEMPTS = 5;
 
     const stored = signupStore.get(email);
     if (!stored) {
@@ -318,7 +428,13 @@ app.post("/auth/verify-email", async (req: Request, res: Response) => {
         return;
     }
     if (stored.otp !== otp) {
-        res.status(400).json({ message: "Invalid code." });
+        stored.attempts += 1;
+        if (stored.attempts >= MAX_VERIFICATION_ATTEMPTS) {
+            signupStore.delete(email);
+            res.status(403).json({ message: "Too many failed attempts. Please sign up again." });
+        } else {
+            res.status(400).json({ message: `Invalid code. ${MAX_VERIFICATION_ATTEMPTS - stored.attempts} attempt(s) remaining.` });
+        }
         return;
     }
 
@@ -340,7 +456,8 @@ app.get("/sites", requireAuth, async (req: Request, res: Response) => {
         .select("id, latitudine, longitude, city, address")
 
     if (error) {
-        res.status(500).json({ message: error.message })
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." })
         return
     }
 
@@ -350,7 +467,9 @@ app.get("/sites", requireAuth, async (req: Request, res: Response) => {
 
 // GET toate alarmele
 app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
-    const { data, error } = await supabase
+    const { all } = req.query;
+
+    let query = supabase
         .from("alarms")
         .select(`
             alarm_id,
@@ -360,15 +479,32 @@ app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
             tehnologie,
             type:alarm_types(reason),
             site:site(city, address)
-        `)
-        .is("resolved_time", null)
+        `);
 
-    if (error) {
-        res.status(500).json({ message: error.message })
-        return
+    if (!all) {
+        query = query.is("resolved_time", null);
     }
 
-    res.json(data)
+    const { data, error } = await query;
+
+    if (error) {
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
+        return;
+    }
+
+    // attach incident_id from junction table
+    const alarmIds = (data ?? []).map((a: any) => a.alarm_id);
+    const incidentByAlarm: Record<number, number> = {};
+    if (alarmIds.length > 0) {
+        const { data: links } = await supabase
+            .from("incident_alarms")
+            .select("alarm_id, incident_id")
+            .in("alarm_id", alarmIds);
+        (links ?? []).forEach((l: any) => { incidentByAlarm[l.alarm_id] = l.incident_id; });
+    }
+
+    res.json((data ?? []).map((a: any) => ({ ...a, incident_id: incidentByAlarm[a.alarm_id] ?? null })));
 })
 
 
@@ -376,26 +512,7 @@ app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
 // GET toate incidentele
 app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
     const { status } = req.query;
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-        res.status(401).json({ message: "No token provided" });
-        return;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) {
-        res.status(401).json({ message: "Invalid token" });
-        return;
-    }
-
-    const { data: roleData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userData.user.id)
-        .single();
-
-    const isAdmin = roleData?.role === "admin";
+    const isAdmin = req.user!.role === "admin";
 
     let query = supabase
         .from("incidents")
@@ -407,17 +524,32 @@ app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
 
     // non-admin users only see their own incidents
     if (!isAdmin) {
-        query = query.eq("assigned_to", userData.user.id);
+        query = query.eq("assigned_to", req.user!.id);
     }
 
     const { data, error } = await query;
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
-    res.json(data);
+    // attach alarm_ids from junction table
+    const incidentIds = (data ?? []).map((i: any) => i.incident_id);
+    const alarmsByIncident: Record<number, number[]> = {};
+    if (incidentIds.length > 0) {
+        const { data: links } = await supabase
+            .from("incident_alarms")
+            .select("incident_id, alarm_id")
+            .in("incident_id", incidentIds);
+        (links ?? []).forEach((l: any) => {
+            if (!alarmsByIncident[l.incident_id]) alarmsByIncident[l.incident_id] = [];
+            alarmsByIncident[l.incident_id].push(l.alarm_id);
+        });
+    }
+
+    res.json((data ?? []).map((i: any) => ({ ...i, alarm_ids: alarmsByIncident[i.incident_id] ?? [] })));
 });
 
 //incidente active
@@ -434,7 +566,8 @@ app.patch("/incidents/:id/assign", requireAuth, requireAdmin, async (req: Reques
         .single();
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -458,11 +591,12 @@ app.patch("/incidents/:id/assign", requireAuth, requireAdmin, async (req: Reques
     }
 });
 
-app.get("/users", requireAuth, async (req: Request, res: Response) => {
+app.get("/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     const { data, error } = await supabase.auth.admin.listUsers();
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -490,8 +624,10 @@ app.post("/users/create-by-admin", requireAuth, requireAdmin, async (req: Reques
     });
 
     if (error) {
+        console.error(error);
         const status = error.message.toLowerCase().includes("already") ? 409 : 400;
-        res.status(status).json({message: error.message});
+        const msg = status === 409 ? "A user with this email already exists." : "Something went wrong. Please try again.";
+        res.status(status).json({ message: msg });
         return;
     }
     if (role === "admin") {
@@ -505,19 +641,19 @@ app.post("/users/create-by-admin", requireAuth, requireAdmin, async (req: Reques
     const siteUrl = process.env.SITE_URL || "https://example.com";
 
     try {
-        await sendHtmlEmail(email, `Your ${siteName} account has been created`, `
+        await sendHtmlEmail(email, `Your ${escapeHtml(siteName)} account has been created`, `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:480px;margin:auto;border-radius:12px;">
-    <h2 style="color:#fff;margin-bottom:4px;">Welcome to ${siteName}!</h2>
+    <h2 style="color:#fff;margin-bottom:4px;">Welcome to ${escapeHtml(siteName)}!</h2>
     <p style="color:#6b7280;font-size:14px;line-height:1.6;margin:0 0 24px;">
         An account has been created for you on
-        <a href="${siteUrl}" style="color:#a78bfa;">${siteName}</a>.
+        <a href="${siteUrl}" style="color:#a78bfa;">${escapeHtml(siteName)}</a>.
         Use the credentials below to sign in.
     </p>
     <div style="background:#1a1030;border:1px solid #2d1f4e;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
         <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Username (email)</p>
-        <p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#e2e8f0;">${email}</p>
+        <p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#e2e8f0;">${escapeHtml(email)}</p>
         <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Auto-generated password</p>
-        <p style="margin:0;font-size:20px;font-weight:700;letter-spacing:3px;color:#a78bfa;font-family:monospace;">${plainPassword}</p>
+        <p style="margin:0;font-size:20px;font-weight:700;letter-spacing:3px;color:#a78bfa;font-family:monospace;">${escapeHtml(plainPassword)}</p>
     </div>
     <p style="color:#f87171;font-size:12px;margin:0 0 24px;">
         Please change your password immediately after your first sign in.
@@ -577,11 +713,12 @@ app.post("/users/change-password", requireAuth, async (req: Request, res: Respon
         );
 
         if (updateError) {
-            res.status(400).json({ message: updateError.message });
+            console.error(updateError);
+            res.status(400).json({ message: "Something went wrong. Please try again." });
             return;
         }
 
-        res.status(200).json({ message: "Password changed successfully." });
+        res.status(200).json({ message: "Password changed successfully.", sessionExpired: true });
 
     } catch (err: any) {
         console.error("[change-password]", err);
@@ -618,27 +755,9 @@ app.get("/users/:id", requireAuth, async (req: Request, res: Response) => {
 app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
     const { message } = req.body;
-    const token = req.headers.authorization?.split(" ")[1];
+    
 
-    if (!token) {
-        res.status(401).json({ message: "No token provided" });
-        return;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !userData.user) {
-        res.status(401).json({ message: "Invalid token" });
-        return;
-    }
-
-    const { data: roleData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userData.user.id)
-        .single();
-
-    if (roleData?.role !== "admin") {
+    if (req.user!.role !== "admin") {
         res.status(403).json({ message: "Only admins can edit messages" });
         return;
     }
@@ -647,10 +766,11 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
 
     const { error: insertError } = await supabase
         .from("messages")
-        .insert({ id_incident: parseInt(id as string), id_user: userData.user.id, time: now, message });
+        .insert({ id_incident: parseInt(id as string), id_user: req.user!.id, time: now, message });
 
     if (insertError) {
-        res.status(500).json({ message: insertError.message });
+        console.error(insertError);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -662,7 +782,8 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
         .single();
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -672,14 +793,14 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
     (async () => {
         try {
             const assignedTo = data?.assigned_to;
-            if (!assignedTo || assignedTo === userData.user.id) return;
+            if (!assignedTo || assignedTo === req.user!.id) return;
 
             const { data: assigneeAuth } = await supabase.auth.admin.getUserById(assignedTo);
             const assigneeEmail = assigneeAuth?.user?.email;
             if (!assigneeEmail) return;
 
             const { site } = await getIncidentEmailData(id as string);
-            const senderEmail = userData.user.email ?? "an admin";
+            const senderEmail = req.user!.email ?? "an admin";
             const html = buildNewMessageEmail(id as string, site, message, senderEmail);
             await sendHtmlEmail(assigneeEmail, `[AlarmUP] New message on INC${id}`, html);
         } catch (err) {
@@ -690,6 +811,25 @@ app.patch("/incidents/:id/message", requireAuth, async (req: Request, res: Respo
 
 app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
+    const caller = req.user!;
+
+    if (caller.role !== "admin") {
+        const { data: incident, error: incidentError } = await supabase
+            .from("incidents")
+            .select("assigned_to")
+            .eq("incident_id", parseInt(id as string))
+            .single();
+
+        if (incidentError || !incident) {
+            res.status(404).json({ message: "Incident not found" });
+            return;
+        }
+
+        if (incident.assigned_to !== caller.id) {
+            res.status(403).json({ message: "Access denied" });
+            return;
+        }
+    }
 
     const { data, error } = await supabase
         .from("messages")
@@ -699,7 +839,8 @@ app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Respon
         .limit(3);
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -708,11 +849,30 @@ app.get("/incidents/:id/messages", requireAuth, async (req: Request, res: Respon
 
 app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Response) => {
     const { id } = req.params;
+    const caller = req.user!;
     const { recipient_id, recipient_email } = req.body;
 
     if (!recipient_id && !recipient_email) {
-        res.status(400).json({ message: "recipient_id or recipient_email is required" });
+        res.status(400).json({ message: "recipient_email is required" });
         return;
+    }
+
+    if (caller.role !== "admin") {
+        const { data: incident, error: incidentError } = await supabase
+            .from("incidents")
+            .select("assigned_to")
+            .eq("incident_id", parseInt(id as string))
+            .single();
+
+        if (incidentError || !incident) {
+            res.status(404).json({ message: "Incident not found" });
+            return;
+        }
+
+        if (incident.assigned_to !== caller.id) {
+            res.status(403).json({ message: "Access denied" });
+            return;
+        }
     }
 
     let recipientEmail: string;
@@ -745,13 +905,13 @@ app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Re
         ? messages.map(m => `
             <tr>
                 <td style="padding:8px 10px;color:#94a3b8;font-size:12px;white-space:nowrap;">${new Date(m.time).toLocaleString()}</td>
-                <td style="padding:8px 10px;color:#a78bfa;font-size:12px;">${m.id_user}</td>
-                <td style="padding:8px 10px;color:#e2e8f0;font-size:13px;">${m.message}</td>
+                <td style="padding:8px 10px;color:#a78bfa;font-size:12px;">${escapeHtml(m.id_user)}</td>
+                <td style="padding:8px 10px;color:#e2e8f0;font-size:13px;">${escapeHtml(m.message)}</td>
             </tr>`).join("")
         : `<tr><td colspan="3" style="padding:10px;color:#4b5563;font-size:12px;">No messages</td></tr>`;
 
     const alarmRows = alarms.map(a =>
-        `<tr><td style="padding:6px 10px;color:#94a3b8;">${a.tehnologie} · ${a.type}</td><td style="padding:6px 10px;color:#94a3b8;">${a.site}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
+        `<tr><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.tehnologie)} · ${escapeHtml(a.type)}</td><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.site)}</td><td style="padding:6px 10px;color:${escapeHtml(a.status === 1 ? "#f87171" : "#4ade80")};">${escapeHtml(a.status === 1 ? "Active" : "Resolved")}</td></tr>`
     ).join("");
 
     const mapImg = site
@@ -761,15 +921,15 @@ app.post("/incidents/:id/send-report", requireAuth, async (req: Request, res: Re
     const html = `
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#fff;margin-bottom:4px;">Incident Report</h2>
-  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${id}</strong></p>
+  <p style="color:#6b7280;margin-top:0;">AlarmUP · Incident <strong style="color:#a78bfa;">INC${escapeHtml(String(id))}</strong></p>
 
   <table style="width:100%;border-collapse:collapse;margin:20px 0;">
-    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${incident?.priority ?? "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${incident?.status === 1 ? "#f87171" : "#4ade80"};">${incident?.status === 1 ? "Active" : "Resolved"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">End time</td><td style="color:#fff;">${incident?.end_time ? new Date(incident.end_time).toLocaleString() : "—"}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Assigned to</td><td style="color:#fff;">${assignedEmail}</td></tr>
-    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${site.city ?? ""} — ${site.address ?? ""}` : "—"}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Priority</td><td style="color:#fff;">${escapeHtml(incident?.priority ?? "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:${escapeHtml(incident?.status === 1 ? "#f87171" : "#4ade80")};">${escapeHtml(incident?.status === 1 ? "Active" : "Resolved")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Start time</td><td style="color:#fff;">${escapeHtml(incident?.start_time ? new Date(incident.start_time).toLocaleString() : "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">End time</td><td style="color:#fff;">${escapeHtml(incident?.end_time ? new Date(incident.end_time).toLocaleString() : "—")}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Assigned to</td><td style="color:#fff;">${escapeHtml(assignedEmail)}</td></tr>
+    <tr><td style="color:#6b7280;padding:6px 0;">Location</td><td style="color:#fff;">${site ? `${escapeHtml(site.city ?? "")} — ${escapeHtml(site.address ?? "")}` : "—"}</td></tr>
   </table>
 
   ${mapImg}
@@ -817,7 +977,7 @@ app.patch("/incidents/:id/resolve", requireAuth, async (req: Request, res: Respo
 
     const { data: current, error: fetchError } = await supabase
         .from("incidents")
-        .select("end_time, status, assigned_to")
+        .select("end_time, status, assigned_to, start_time")
         .eq("incident_id", id)
         .single();
 
@@ -838,6 +998,16 @@ app.patch("/incidents/:id/resolve", requireAuth, async (req: Request, res: Respo
         return;
     }
 
+    if(end_time < current.start_time) {
+        res.status(400).json({ message: "end_time cannot be before start_time" });
+        return;
+    }
+
+    if(end_time > new Date().toISOString()) {
+        res.status(400).json({ message: "end_time cannot be in the future" });
+        return;
+    }
+
     const { data, error } = await supabase
         .from("incidents")
         .update({ end_time, status: 0 })
@@ -846,7 +1016,8 @@ app.patch("/incidents/:id/resolve", requireAuth, async (req: Request, res: Respo
         .single();
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -900,6 +1071,102 @@ app.get("/incidents/:id", requireAuth, async (req: Request, res: Response) => {
     res.json({ ...incident, alarms: alarms ?? [] });
 });
 
+// ── Admin History endpoints (paginated, server-side filtered) ────────────────
+
+app.get("/admin/history/incidents", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const isExport = req.query.export === "1";
+    const page     = Math.max(0, parseInt(req.query.page     as string) || 0);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 25));
+    const { priority, status, from, to, sortField, sortDir, id } = req.query;
+
+    let query = supabase
+        .from("incidents")
+        .select("incident_id, status, start_time, end_time, priority, assigned_to, messages", { count: "exact" });
+
+    if (id)                         query = query.eq("incident_id", parseInt(id as string));
+    if (priority)                   query = query.eq("priority", priority as string);
+    if (status === "active")        query = query.eq("status", 1);
+    else if (status === "resolved") query = query.neq("status", 1);
+    if (from)                       query = query.gte("start_time", from as string);
+    if (to)                         query = query.lte("start_time", to as string);
+
+    const validSort: Record<string, string> = { start_time: "start_time", end_time: "end_time", priority: "priority" };
+    const col = validSort[sortField as string] ?? "start_time";
+    query = query.order(col, { ascending: sortDir === "asc", nullsFirst: false });
+    if (!isExport) query = query.range(page * pageSize, (page + 1) * pageSize - 1);
+
+    const { data, count, error } = await query;
+    if (error) { console.error(error); res.status(500).json({ message: "Something went wrong." }); return; }
+
+    const incidentIds = (data ?? []).map((i: any) => i.incident_id);
+    const alarmsByIncident: Record<number, number[]> = {};
+    if (incidentIds.length > 0) {
+        const { data: links } = await supabase
+            .from("incident_alarms")
+            .select("incident_id, alarm_id")
+            .in("incident_id", incidentIds);
+        (links ?? []).forEach((l: any) => {
+            if (!alarmsByIncident[l.incident_id]) alarmsByIncident[l.incident_id] = [];
+            alarmsByIncident[l.incident_id].push(l.alarm_id);
+        });
+    }
+
+    res.json({
+        data: (data ?? []).map((i: any) => ({ ...i, alarm_ids: alarmsByIncident[i.incident_id] ?? [] })),
+        total: count ?? 0,
+    });
+});
+
+app.get("/admin/history/alarms", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    const isExport = req.query.export === "1";
+    const page     = Math.max(0, parseInt(req.query.page     as string) || 0);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 25));
+    const { tech, from, to, sortField, sortDir, id, problem } = req.query;
+
+    let typeIds: number[] | null = null;
+    if (problem) {
+        const { data: typeRows } = await supabase
+            .from("alarm_types")
+            .select("id")
+            .ilike("reason", `%${problem as string}%`);
+        typeIds = (typeRows ?? []).map((t: any) => t.id);
+        if (typeIds.length === 0) { res.json({ data: [], total: 0 }); return; }
+    }
+
+    let query = supabase
+        .from("alarms")
+        .select(`alarm_id, status, start_time, resolved_time, tehnologie, type:alarm_types(reason), site:site(city, address)`, { count: "exact" });
+
+    if (id)               query = query.eq("alarm_id", parseInt(id as string));
+    if (tech)             query = query.eq("tehnologie", tech as string);
+    if (typeIds !== null) query = query.in("type", typeIds);
+    if (from)             query = query.gte("start_time", from as string);
+    if (to)               query = query.lte("start_time", to as string);
+
+    const validSort: Record<string, string> = { start_time: "start_time", resolved_time: "resolved_time" };
+    const col = validSort[sortField as string] ?? "start_time";
+    query = query.order(col, { ascending: sortDir === "asc", nullsFirst: false });
+    if (!isExport) query = query.range(page * pageSize, (page + 1) * pageSize - 1);
+
+    const { data, count, error } = await query;
+    if (error) { console.error(error); res.status(500).json({ message: "Something went wrong." }); return; }
+
+    const alarmIds = (data ?? []).map((a: any) => a.alarm_id);
+    const incidentByAlarm: Record<number, number> = {};
+    if (alarmIds.length > 0) {
+        const { data: links } = await supabase
+            .from("incident_alarms")
+            .select("alarm_id, incident_id")
+            .in("alarm_id", alarmIds);
+        (links ?? []).forEach((l: any) => { incidentByAlarm[l.alarm_id] = l.incident_id; });
+    }
+
+    res.json({
+        data: (data ?? []).map((a: any) => ({ ...a, incident_id: incidentByAlarm[a.alarm_id] ?? null })),
+        total: count ?? 0,
+    });
+});
+
 // ── Admin Request endpoints ──────────────────────────────────────────────────
 
 app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => {
@@ -951,7 +1218,7 @@ app.post("/admin-requests", requireAuth, async (req: Request, res: Response) => 
 <div style="background:#0f0a1e;font-family:sans-serif;padding:32px;max-width:640px;margin:auto;border-radius:12px;">
   <h2 style="color:#fff;margin-bottom:4px;">New Admin Access Request</h2>
   <p style="color:#e2e8f0;margin-top:0;">A user has requested elevated admin access on AlarmUP.</p>
-  <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${requesterEmail}</p>
+  <p style="color:#e2e8f0;"><strong style="color:#a78bfa;">From:</strong> ${escapeHtml(requesterEmail)}</p>
   <p style="color:#94a3b8;font-size:13px;margin-top:8px;">Admin privileges allow the user to manage incidents, assign responders, approve or reject access requests, and send reports.</p>
   <p style="color:#94a3b8;font-size:12px;margin-top:24px;">Log in to AlarmUP to approve or reject this request.</p>
 </div>`);
@@ -985,7 +1252,8 @@ app.get("/admin-requests/my", requireAuth, async (req: Request, res: Response) =
         .maybeSingle();
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -1000,7 +1268,8 @@ app.get("/admin-requests", requireAuth, requireAdmin, async (req: Request, res: 
         .order("created_at", { ascending: true });
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -1101,7 +1370,8 @@ app.get("/admin/locked-users", requireAuth, requireAdmin, async (_req: Request, 
         .eq("locked", true);
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
@@ -1141,12 +1411,12 @@ app.patch("/admin/users/:id/unlock", requireAuth, requireAdmin, async (req: Requ
     });
 
     if (updateError) {
-        res.status(500).json({ message: updateError.message });
+        console.error(updateError);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
-    await supabase.from("profiles").update({ locked: false }).eq("id", id);
-    loginAttemptStore.delete(userEmail);
+    await supabase.from("profiles").update({ locked: false, failed_login_attempts: 0, failed_mfa: 0 }).eq("id", id);
 
     try {
         await sendEmail(
@@ -1169,17 +1439,28 @@ app.post("/auth/change-password", requireAuth, async (req: Request, res: Respons
         return;
     }
 
+    if (!/[A-Z]/.test(newPassword)) {
+        res.status(400).json({ message: "Password must contain at least one uppercase letter." });
+        return;
+    }
+
+    if (!/[0-9]/.test(newPassword)) {
+        res.status(400).json({ message: "Password must contain at least one number." });
+        return;
+    }
+
     const { error } = await supabase.auth.admin.updateUserById(req.user!.id, {
         password: newPassword,
         app_metadata: { must_change_password: false },
     });
 
     if (error) {
-        res.status(500).json({ message: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
         return;
     }
 
-    res.json({ message: "Password changed successfully." });
+    res.json({ message: "Password changed successfully.", sessionExpired: true });
 });
 
 app.listen(3000, () => console.log("Backend running on http://localhost:3000"))

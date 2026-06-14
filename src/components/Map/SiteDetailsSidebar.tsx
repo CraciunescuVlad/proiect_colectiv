@@ -41,7 +41,7 @@ const AlarmCard = ({ alarm }: { alarm: Alarm }) => {
         if (!expanded && !alarmType) {
             setLoading(true);
             try {
-                const res = await fetch(`http://localhost:3000/map/alarm-type/${alarm.type}`, { headers: authHeaders() });
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/map/alarm-type/${alarm.type}`, { headers: authHeaders() });
                 const data = await res.json();
                 setAlarmType(data);
             } catch (err) {
@@ -129,7 +129,7 @@ const SiteDetailsSidebar = ({
         if (!incident || !user || !selectedUserId) return;
         setAssigning(true);
         try {
-            const res = await fetch(`http://localhost:3000/incidents/${incident.incident_id}/assign`, {
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/incidents/${incident.incident_id}/assign`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
@@ -148,7 +148,7 @@ const SiteDetailsSidebar = ({
 
     useEffect(() => {
         if (user?.role !== "admin" || !incident) return;
-        fetch("http://localhost:3000/users", {
+        fetch(`${import.meta.env.VITE_BACKEND_URL}/users`, {
             headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
         })
             .then(r => r.json())
@@ -168,7 +168,7 @@ const SiteDetailsSidebar = ({
         const fetchAlarms = async () => {
             setLoadingAlarms(true);
             try {
-                const res = await fetch(`http://localhost:3000/map/sites/${site.id}/alarms`, { headers: authHeaders() });
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/map/sites/${site.id}/alarms`, { headers: authHeaders() });
                 const data = await res.json();
                 setAlarms(Array.isArray(data) ? data : []);
             } catch (err) {
@@ -189,7 +189,7 @@ const SiteDetailsSidebar = ({
         const fetchAssignedUser = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch(`http://localhost:3000/users/${assigned}`, {
+                const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users/${assigned}`, {
                     headers: { "Authorization": `Bearer ${token}` },
                 });
                 const data = await res.json();

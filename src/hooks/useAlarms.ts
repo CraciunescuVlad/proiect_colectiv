@@ -19,7 +19,7 @@ const useAlarms = () => {
         const fetchAlarms = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const response = await fetch("http://localhost:3000/alarms", {
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/alarms`, {
                     headers: { "Authorization": `Bearer ${token}` },
                 });
                 const data = await response.json();

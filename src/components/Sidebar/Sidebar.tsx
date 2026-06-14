@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { BarChart2, Map, LogOut, LayoutDashboard, ShieldCheck } from "lucide-react";
+import { BarChart2, Map, LogOut, LayoutDashboard, ShieldCheck, History } from "lucide-react";
 import { useUser } from "../../context/UserContext";
 
 const Sidebar = () => {
@@ -16,11 +16,12 @@ const Sidebar = () => {
     };
 
     const navItems = [
-        { label: "Dashboard", icon: <LayoutDashboard size={20} />, route: "/home" },
-        { label: "Statistics", icon: <BarChart2 size={20} />, route: "/statistics" },
-        { label: "Map", icon: <Map size={20} />, route: "/harta" },
-        { label: "Admin Access", icon: <ShieldCheck size={20} />, route: "/admin-requests" },
-    ];
+        { label: "Dashboard", icon: <LayoutDashboard size={20} />, route: "/home", adminOnly: false },
+        { label: "Statistics", icon: <BarChart2 size={20} />, route: "/statistics", adminOnly: false },
+        { label: "Map", icon: <Map size={20} />, route: "/harta", adminOnly: false },
+        { label: "Admin Access", icon: <ShieldCheck size={20} />, route: "/admin-requests", adminOnly: false },
+        { label: "History", icon: <History size={20} />, route: "/history", adminOnly: true },
+    ].filter(item => !item.adminOnly || user?.role === "admin");
 
     return (
         <div

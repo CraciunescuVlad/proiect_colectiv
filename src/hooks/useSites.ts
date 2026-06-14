@@ -16,7 +16,7 @@ const useSites = () => {
         const fetchSites = async () => {
             try {
                 setLoading(true);
-                const response = await fetch("http://localhost:3000/statistics/sites", {
+                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/statistics/sites`, {
                     headers: authHeaders(),
                 });
 

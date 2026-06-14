@@ -30,6 +30,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
         .eq("id", userData.user.id)
         .single();
 
+    if (userData.user.app_metadata?.must_change_password === true && req.path !== "/auth/change-password") {
+        res.status(403).json({ message: "Password change required.", mustChangePassword: true });
+        return;
+    }
+
     req.user = {
         id: userData.user.id,
         email: userData.user.email,
