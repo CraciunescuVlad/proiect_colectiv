@@ -9,8 +9,7 @@ const ChangePassword = () => {
     const [error, setError] = useState("");
 
     useEffect(() => {
-        const flag = localStorage.getItem("mustChangePassword");
-        if (!flag) window.location.href = "/home";
+        if (!localStorage.getItem("token")) window.location.href = "/login";
     }, []);
 
     const handleSubmit = async () => {
@@ -43,7 +42,6 @@ const ChangePassword = () => {
                 return;
             }
 
-            localStorage.removeItem("mustChangePassword");
             localStorage.removeItem("token");
             localStorage.removeItem("user");
             window.location.href = "/login";

@@ -12,6 +12,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
     if (!user) return <Navigate to="/login" replace />;
 
+    if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
+
     return <>{children}</>;
 };
 

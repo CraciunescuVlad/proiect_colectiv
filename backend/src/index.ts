@@ -18,7 +18,14 @@ import  rateLimit from "express-rate-limit";
 dotenv.config();
 
 const app = express();
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+        },
+    },
+}));
 app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json());
 
@@ -96,7 +103,7 @@ function buildAssignmentEmail(incidentId: string, incident: any, alarms: any[], 
         ? `<img src="${staticMapUrl(site.latitudine, site.longitude)}" width="600" style="border-radius:8px;display:block;margin:16px 0;" alt="Incident location"/>`
         : "";
     const alarmRows = alarms.map(a =>
-        `<tr><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.tehnologie)} · ${escapeHtml(a.type)}</td><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.site)}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
+        `<tr><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.tehnologie)} · ${escapeHtml(String(a.type ?? ""))}</td><td style="padding:6px 10px;color:#94a3b8;">${escapeHtml(a.site)}</td><td style="padding:6px 10px;color:${a.status === 1 ? "#f87171" : "#4ade80"};">${a.status === 1 ? "Active" : "Resolved"}</td></tr>`
     ).join("");
 
     return `
@@ -170,8 +177,16 @@ const mfaStore = new Map<string, MfaEntry>();
 const MAX_LOGIN_ATTEMPTS = 3;
 
 async function getUserByEmail(email: string) {
-    const { data } = await supabase.auth.admin.listUsers();
-    return data?.users?.find(u => u.email === email) ?? null;
+    const perPage = 1000;
+    let page = 1;
+    while (true) {
+        const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+        if (error || !data?.users?.length) return null;
+        const user = data.users.find(u => u.email === email);
+        if (user) return user;
+        if (data.users.length < perPage) return null;
+        page++;
+    }
 }
 
 
@@ -1056,6 +1071,11 @@ app.get("/incidents/:id", requireAuth, async (req: Request, res: Response) => {
         return;
     }
 
+    if (req.user!.role !== "admin" && incident.assigned_to !== req.user!.id) {
+        res.status(403).json({ message: "Access denied." });
+        return;
+    }
+
     const { data: incidentAlarms } = await supabase
         .from("incident_alarms")
         .select("alarm_id")
@@ -1433,6 +1453,12 @@ app.patch("/admin/users/:id/unlock", requireAuth, requireAdmin, async (req: Requ
 
 app.post("/auth/change-password", requireAuth, async (req: Request, res: Response) => {
     const { newPassword } = req.body;
+
+    const { data: freshUser } = await supabase.auth.admin.getUserById(req.user!.id);
+    if (freshUser?.user?.app_metadata?.must_change_password !== true) {
+        res.status(403).json({ message: "Forbidden." });
+        return;
+    }
 
     if (!newPassword || newPassword.length < 8) {
         res.status(400).json({ message: "Password must be at least 8 characters." });
