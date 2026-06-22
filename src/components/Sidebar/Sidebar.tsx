@@ -31,11 +31,16 @@ const Sidebar = () => {
             ${expanded ? "w-64" : "w-16"}`}
         >
             <div>
-                <div className="mb-8 px-2 h-7 flex items-center overflow-hidden">
-                    {expanded ? (
-                        <h1 className="text-white font-bold text-xl tracking-tight whitespace-nowrap">AlarmUP</h1>
-                    ) : (
-                        <span className="text-white font-bold text-xl">M</span>
+                <div className="mb-8 px-2 h-7 flex items-center gap-2 overflow-hidden">
+                    <img
+                        src="/AlarmUp.png"
+                        alt="AlarmUp logo"
+                        className="h-7 w-7 shrink-0 object-contain"
+                    />
+                    {expanded && (
+                        <h1 className="text-white font-bold text-xl tracking-tight whitespace-nowrap">
+                            AlarmUP
+                        </h1>
                     )}
                 </div>
 
@@ -48,9 +53,9 @@ const Sidebar = () => {
                                 onClick={() => navigate(item.route)}
                                 className={`flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors w-full text-left
                                   ${isActive
-                                    ? "bg-white/10 text-white"
-                                    : "text-white/50 hover:text-white hover:bg-white/5"
-                                }`}
+                                        ? "bg-white/10 text-white"
+                                        : "text-white/50 hover:text-white hover:bg-white/5"
+                                    }`}
                             >
                                 <span className="shrink-0">{item.icon}</span>
                                 {expanded && (
