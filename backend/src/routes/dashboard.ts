@@ -1,12 +1,9 @@
 import { Router, Request, Response } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAll } from "./statistics/helpers";
 
 const createDashboardRouter = (supabase: SupabaseClient) => {
     const router = Router();
-
-    router.get("/test", (req: Request, res: Response) => {
-        res.json({ message: "dashboard router works" })
-    })
 
     router.get("/alarms/chart", async (req: Request, res: Response) => {
         const { data, error } = await supabase
@@ -75,43 +72,71 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
     })
 
     router.get("/stats", async (req: Request, res: Response) => {
-        // Counts din DB direct, fără să încarci toate rândurile
-        const [
-            { count: total },
-            { count: resolved },
-            { count: active },
-            { count: totalIncidents },
-            { count: criticalCount },
-            { data: resolvedIncidents, error: resolvedError }
-        ] = await Promise.all([
-            supabase.from("alarms").select("*", { count: "exact", head: true }),
-            supabase.from("alarms").select("*", { count: "exact", head: true }).eq("status", 0),
-            supabase.from("alarms").select("*", { count: "exact", head: true }).eq("status", 1),
-            supabase.from("incidents").select("*", { count: "exact", head: true }),
-            supabase.from("incidents").select("*", { count: "exact", head: true }).eq("priority", "Critical"),
-            supabase.from("incidents").select("start_time, end_time").eq("status", 0).not("end_time", "is", null).range(0, 9999)        ])
+        const { count: total } = await supabase
+            .from("alarms")
+            .select("*", { count: "exact", head: true });
 
-        if (resolvedError) {
-            console.error(resolvedError);
-            res.status(500).json({ message: "Something went wrong." })
-            return
+        const { count: resolved } = await supabase
+            .from("alarms")
+            .select("*", { count: "exact", head: true })
+            .eq("status", 0);
+
+        const { count: active } = await supabase
+            .from("alarms")
+            .select("*", { count: "exact", head: true })
+            .eq("status", 1);
+
+        const { count: totalIncidents } = await supabase
+            .from("incidents")
+            .select("*", { count: "exact", head: true });
+
+        const { count: criticalCount } = await supabase
+            .from("incidents")
+            .select("*", { count: "exact", head: true })
+            .eq("priority", "Critical");
+
+        const resolvedIncidentsResult = await fetchAll((from, to) =>
+            supabase
+                .from("incidents")
+                .select("start_time, end_time")
+                .eq("status", 0)
+                .not("end_time", "is", null)
+                .range(from, to)
+        );
+
+        if (resolvedIncidentsResult.error || !resolvedIncidentsResult.data) {
+            console.error(resolvedIncidentsResult.error);
+            res.status(500).json({ message: "Something went wrong." });
+            return;
         }
 
-        const resolutionRate = total && total > 0
-            ? (((resolved ?? 0) / total) * 100).toFixed(1)
-            : "0.0"
+        const resolvedIncidents = resolvedIncidentsResult.data;
 
-        const avgResolveMs = resolvedIncidents && resolvedIncidents.length > 0
-            ? resolvedIncidents.reduce((sum: number, i: any) => {
-            return sum + (new Date(i.end_time).getTime() - new Date(i.start_time).getTime())
-        }, 0) / resolvedIncidents.length
-            : 0
+        const resolutionRate =
+            total && total > 0
+                ? (((resolved ?? 0) / total) * 100).toFixed(1)
+                : "0.0";
 
-        const avgResolveHours = Math.floor(avgResolveMs / (1000 * 60 * 60))
-        const avgResolveMinutes = Math.floor((avgResolveMs % (1000 * 60 * 60)) / (1000 * 60))
-        const avgResolveTime = resolvedIncidents && resolvedIncidents.length > 0
-            ? `${avgResolveHours}h ${avgResolveMinutes}m`
-            : "N/A"
+        const avgResolveMs =
+            resolvedIncidents.length > 0
+                ? resolvedIncidents.reduce((sum: number, i: any) => {
+                    return (
+                        sum +
+                        (new Date(i.end_time).getTime() -
+                            new Date(i.start_time).getTime())
+                    );
+                }, 0) / resolvedIncidents.length
+                : 0;
+
+        const avgResolveHours = Math.floor(avgResolveMs / (1000 * 60 * 60));
+        const avgResolveMinutes = Math.floor(
+            (avgResolveMs % (1000 * 60 * 60)) / (1000 * 60)
+        );
+
+        const avgResolveTime =
+            resolvedIncidents.length > 0
+                ? `${avgResolveHours}h ${avgResolveMinutes}m`
+                : "N/A";
 
         res.json({
             total: total ?? 0,
@@ -121,8 +146,9 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
             avgResolveTime,
             totalIncidents: totalIncidents ?? 0,
             criticalCount: criticalCount ?? 0
-        })
-    })
+        });
+    });
+
 
     return router;
 }

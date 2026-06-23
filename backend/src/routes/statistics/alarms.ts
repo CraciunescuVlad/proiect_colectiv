@@ -19,10 +19,10 @@ const createAlarmsRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
     /**
-     * Returns the number of alarms per bucket in the requested date range.
-     * Bucket size is controlled by the optional 'granularity' query param (day, week, month).
-     * When 'siteId' is provided (single value or comma-separated list), only alarms on those sites are counted.
-     * Empty buckets are filled with zero so the chart shows a continuous timeline.
+     * Returns the number of alarms per bucket in the requested date range
+     * Bucket size is controlled by the optional 'granularity' query param (day, week, month)
+     * When 'siteId' is provided (single value or comma-separated list), only alarms on those sites are counted
+     * Empty buckets are filled with zero so the chart shows a continuous timeline
      */
     router.get("/alarms/chart", async (req: Request, res: Response) => {
         const siteIds = parseSiteIds(req.query.siteId);

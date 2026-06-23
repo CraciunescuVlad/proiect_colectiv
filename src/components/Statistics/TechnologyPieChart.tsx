@@ -14,7 +14,12 @@ type Props = {
 // Color palette used for the slices
 const COLORS = ["#f472b6", "#818cf8", "#facc15", "#4ade80", "#fb923c", "#60a5fa", "#ef4444", "#a78bfa"];
 
-// Custom tooltip showing slice name, value, and percentage of total
+/**
+ * Custom tooltip showing slice name, value and percentage of total
+ * @param active Whether the tooltip is currently active
+ * @param payload Recharts payload containing the hovered slice data
+ * @param total The sum of all slice values, used to compute the percentage
+ */
 const CustomTooltip = ({ active, payload, total }: any) => {
     if (active && payload && payload.length) {
         const entry = payload[0];
@@ -29,7 +34,15 @@ const CustomTooltip = ({ active, payload, total }: any) => {
     return null;
 };
 
-// Pie chart showing distribution of a metric by technology
+/**
+ * Pie chart showing distribution of a metric by technology
+ * @param endpoint API endpoint that returns the distribution data
+ * @param title Title displayed above the chart
+ * @param from Optional start date of the range filter
+ * @param to Optional end date of the range filter
+ * @param siteIds Optional list of site ids to filter by
+ * @param assignedTo Optional profile id to filter incidents assigned to
+ */
 const TechnologyPieChart = ({ endpoint, title, from, to, siteIds, assignedTo }: Props) => {
     const { data, loading, error } = useTechnologyDistribution(endpoint, from, to, siteIds, assignedTo);
     const total = data.reduce((sum, item) => sum + item.value, 0);

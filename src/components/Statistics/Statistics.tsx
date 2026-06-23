@@ -11,6 +11,7 @@ import useViewerKpis from "../../hooks/useViewerKpis";
 import useOverviewKpis from "../../hooks/useOverviewKpis";
 import Spinner from "../Spinner/Spinner";
 
+/** Returns the default date range spanning the last 30 days up to today */
 const getDefaultRange = (): DateRange => {
     const to = new Date();
     const from = new Date();
@@ -18,7 +19,10 @@ const getDefaultRange = (): DateRange => {
     return { from, to };
 };
 
-// Formats a duration in minutes as a short human-readable string
+/**
+ * Formats a duration in minutes as a short human-readable string
+ * @param minutes The duration in minutes
+ */
 const formatMinutes = (minutes: number): string => {
     if (minutes <= 0) {
         return "0m";
@@ -31,7 +35,10 @@ const formatMinutes = (minutes: number): string => {
     return `${hours}h ${mins}m`;
 };
 
-// Formats a period-over-period percentage with an explicit sign
+/**
+ * Formats a period-over-period percentage with an explicit sign
+ * @param percent The percentage change to format
+ */
 const formatChange = (percent: number): string => {
     if (percent > 0) {
         return `+${percent}%`;
@@ -39,6 +46,7 @@ const formatChange = (percent: number): string => {
     return `${percent}%`;
 };
 
+/** Statistics page showing KPIs and charts filtered by date range, sites or assigned profile */
 const Statistics = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === "admin";
@@ -54,7 +62,10 @@ const Statistics = () => {
         selectedSiteIds
     );
 
-    // Filters are mutually exclusive: selecting sites clears the profile, and vice versa
+    /**
+     * Updates the site filter, clearing the profile filter since the two are mutually exclusive
+     * @param siteIds The newly selected site ids
+     */
     const handleSiteChange = (siteIds: string[]) => {
         setSelectedSiteIds(siteIds);
         if (siteIds.length > 0) {
@@ -62,6 +73,10 @@ const Statistics = () => {
         }
     };
 
+    /**
+     * Updates the profile filter, clearing the site filter since the two are mutually exclusive
+     * @param profileId The newly selected profile id or null
+     */
     const handleProfileChange = (profileId: string | null) => {
         setSelectedProfileId(profileId);
         if (profileId !== null) {
@@ -77,7 +92,7 @@ const Statistics = () => {
         pageTitle = "Site Statistics";
     }
 
-    // Determines which layout to show: viewer-focused vs. default
+    // Decides which layout to show: viewer-focused vs default
     const viewerMode = selectedProfileId !== null;
 
     const avgResolutionLabel = kpisLoading ? "..." : formatMinutes(kpis?.avgResolutionMinutes ?? 0);

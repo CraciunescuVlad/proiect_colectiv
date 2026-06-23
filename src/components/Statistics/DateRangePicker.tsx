@@ -3,22 +3,30 @@ import { DayPicker, type DateRange } from "react-day-picker";
 import { Calendar, ChevronDown } from "lucide-react";
 import "react-day-picker/dist/style.css";
 import "./datepicker.css";
+
 type Props = {
     range: DateRange | undefined;
     onChange: (range: DateRange | undefined) => void;
 };
 
-// Formats a date as "DD MMM" (e.g. "08 May")
+/**
+ * Formats a date as "DD MMM" (e.g. "08 May")
+ * @param date The date to format
+ */
 const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 };
 
-// Button + popover that lets the user pick a start and end date
+/**
+ * Button and popover that lets the user pick a start and end date
+ * @param range The currently selected date range
+ * @param onChange Callback fired when the selected range changes
+ */
 const DateRangePicker = ({ range, onChange }: Props) => {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
-    // Close the popover when clicking outside
+    /** Close the popover when clicking outside of it. */
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -30,7 +38,7 @@ const DateRangePicker = ({ range, onChange }: Props) => {
     }, []);
 
     const label = range?.from && range?.to
-        ? `${formatDate(range.from)} – ${formatDate(range.to)}`
+        ? `${formatDate(range.from)} - ${formatDate(range.to)}`
         : "Select range";
 
     return (

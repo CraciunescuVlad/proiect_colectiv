@@ -9,9 +9,12 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_
 
 INCIDENT_TRIGGER_CHANCE = random.uniform(0, 0.4)
 
-# functie care calculeaza prioritatea unui incident pe baza alarmelor de pe site
-# priority = string pe baza mediei severity-urilor alarmelor active de pe site
-# severity-ul fiecarei alarme se ia din tabela alarm_types prin campul type din tabela alarms
+
+# Computes the priority of an incident based on the alarms on its site
+# Priority is a string derived from the average severity of the active alarms on the site
+# Each alarm's severity comes from the alarm_types table, looked up through the type column on alarms
+# @param site_id The id of the site the incident belongs to
+# @param start_time_incident Only alarms started at or after this timestamp are considered
 def calculate_priority(site_id, start_time_incident):
     alarms = (
         supabase.table("alarms")
@@ -59,6 +62,9 @@ def calculate_priority(site_id, start_time_incident):
     else:
         return "Critical"
 
+
+# Returns the most recent resolved_time among the resolved alarms of a site, or now if none exist
+# @param site_id The site to look at
 def get_latest_resolved_on_site(site_id):
     if not site_id:
         return datetime.now(timezone.utc)
@@ -78,6 +84,9 @@ def get_latest_resolved_on_site(site_id):
     return datetime.now(timezone.utc)
 
 
+# Resolves a random subset of currently active incidents
+# For each one, resolves its linked alarms in a consistent order (oldest first, then the rest within that window)
+# and assigns the incident to a random viewer profile before marking it as resolved
 def resolve_old_incidents():
     active = supabase.table("incidents").select("incident_id, start_time").eq("status", 1).execute()
     active_incidents = active.data
@@ -181,6 +190,7 @@ def resolve_old_incidents():
     print(f"{n_to_resolve} incidente rezolvate.")
 
 
+# Returns the set of site ids that currently have at least one active incident, resolved through incident_alarms -> alarms.site
 def get_active_sites():
     active = supabase.table("incidents").select("incident_id").eq("status", 1).execute().data
     active_ids = [row["incident_id"] for row in active]
@@ -200,6 +210,8 @@ def get_active_sites():
     return {row["site"] for row in alarms}
 
 
+# Inserts a batch of incident-alarm links, generating a unique random id for each row before the insert
+# @param links List of {incident_id, alarm_id, created_at} dicts to insert
 def insert_incident_alarms(links):
     if not links:
         return
@@ -215,13 +227,14 @@ def insert_incident_alarms(links):
 
     supabase.table("incident_alarms").insert(links).execute()
 
-# functie care genereaza incidente noi pe baza alarmelor nou create
-# fiecare site poate avea cel mult un incident activ odata
-# site-ul unui incident activ se determina indirect prin incident_alarms -> alarms.site
-# fiecare alarma are o sansa de INCIDENT_TRIGGER_CHANCE sa declanseze un incident pe site-ul ei
-# daca site-ul are deja un incident activ, nu se mai creeaza unul nou
-# cand se creeaza un incident, se ataseaza toate alarmele active de pe site care nu sunt
-# deja atasate la alt incident, nu doar alarma declansatoare
+
+# Generates new incidents based on the alarms that were just created
+# Each site can have at most one active incident at a time
+# The site of an active incident is resolved indirectly through incident_alarms -> alarms.site
+# Each alarm has a INCIDENT_TRIGGER_CHANCE probability of triggering an incident on its site
+# If the site already has an active incident, no new one is created
+# When an incident is created, all active alarms on that site that are not already linked to another incident
+# are attached to it, not just the triggering one
 def deploy_new_incidents():
 
     all_incidents = [row["incident_id"] for row in supabase.table("incidents").select("incident_id").execute().data]

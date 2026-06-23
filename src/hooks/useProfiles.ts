@@ -6,8 +6,10 @@ export type ProfileOption = {
     email: string;
 };
 
-// Fetches the list of viewer profiles available for filtering in the Statistics page.
-// Endpoint is admin-only on the backend, so we always send the auth token.
+/**
+ * Fetches the list of viewer profiles available for filtering in the Statistics page
+ * Endpoint is admin-only on the backend, so we always send the auth token
+ */
 const useProfiles = () => {
     const { token, user, loading: authLoading } = useAuth();
     const [profiles, setProfiles] = useState<ProfileOption[]>([]);

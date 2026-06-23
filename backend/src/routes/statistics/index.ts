@@ -16,12 +16,6 @@ import createKpisRouter from "./kpis";
 const createStatisticsRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
-    /**
-     * Health-check endpoint used to verify that the router is mounted.
-     */
-    router.get("/test", (req: Request, res: Response) => {
-        res.json({ message: "statistics router works" });
-    });
 
     router.use(createSitesRouter(supabase));
     router.use(createProfilesRouter(supabase));

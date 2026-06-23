@@ -11,7 +11,7 @@ load_dotenv()
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
 
 
-#returneaza setul cu alarmele active cele mai vechi din incidente (cele care "l-au generat")
+# Returns the set of oldest active alarms across active incidents (the ones that originally triggered them)
 def get_oldest_alarm_per_active_incident():
 
     active = supabase.table("incidents").select("incident_id").eq("status", 1).execute().data
@@ -39,14 +39,14 @@ def get_oldest_alarm_per_active_incident():
     )
     alarm_data = {a["alarm_id"]: a for a in alarms_info}
     
-    # grupeaza alarmele per incident
+    # Group alarms per incident
     alarms_per_incident = {}
     for row in links:
         a = alarm_data.get(row["alarm_id"])
-        if a and a["status"] == 1:  # doar alarmele inca active
+        if a and a["status"] == 1:  # only alarms still active
             alarms_per_incident.setdefault(row["incident_id"], []).append(a)
     
-    # pentru fiecare incident, gaseste alarma cea mai veche
+    # For each incident find the oldest alarm
     protected = set()
     for inc_id, alarms in alarms_per_incident.items():
         if alarms:
@@ -54,11 +54,11 @@ def get_oldest_alarm_per_active_incident():
             protected.add(oldest["alarm_id"])
     return protected
 
-# functie care rezolva random alarmele inca active (status=1) din baza de date
-# se alege un numar random de alarme de rezolvat si le rezolva
-# se alege un resolve time in ultimele 5 minute (scriptul se actualizeaza o data la 5 minute)
-# se da update la baza de date
-# dupa rezolvare, recalculeaza priority pentru incidentele active afectate
+
+# Randomly resolves alarms that are still active (status=1) in the database
+# Picks a random number of alarms to resolve and assigns each a resolved time within the last 5 minutes
+# (the script runs once every 5 minutes), then writes the updates back
+# After resolving, recalculates priority for the active incidents that were affected
 def resolve_old_alarms():
 
     active = supabase.table("alarms").select("alarm_id").eq("status", 1).execute()
@@ -70,7 +70,7 @@ def resolve_old_alarms():
 
     protected_alarm_ids = get_oldest_alarm_per_active_incident()
 
-    # exclude alarmele protejate din pool-ul de candidati
+    # Exclude protected alarms from the candidate pool
     eligible = [a for a in alarms_active if a not in protected_alarm_ids]
     
     if not eligible:
@@ -117,9 +117,11 @@ def resolve_old_alarms():
         recalculate_priority_for_incidents(active_affected)
 
 
-# functie care calculeaza prioritatea unui incident pe baza alarmelor de pe site
-# priority = string pe baza mediei severity-urilor alarmelor active de pe site
-# severity-ul fiecarei alarme se ia din tabela alarm_types prin campul type din tabela alarms
+# Computes the priority of an incident based on the alarms on its site
+# Priority is a string derived from the average severity of the active alarms on the site
+# Each alarm's severity comes from the alarm_types table, looked up through the type column on alarms
+# @param site_id The id of the site the incident belongs to
+# @param start_time_incident Only alarms started at or after this timestamp are considered
 def calculate_priority(site_id, start_time_incident):
     alarms = (
         supabase.table("alarms")
@@ -168,10 +170,10 @@ def calculate_priority(site_id, start_time_incident):
         return "Critical"
 
 
-# functie care recalculeaza priority pentru o lista de incidente
-# pentru fiecare incident determina site-ul prin alarme atasate prin incident_alarms
-# si reapeleaza calculate_priority cu start_time-ul incidentului
-# face update pe coloana priority din tabela incidents
+# Recalculates the priority for a list of incidents
+# For each incident it figures out the site through the alarms linked via incident_alarms
+# then calls calculate_priority with the incident's start_time and updates the priority column on incidents
+# @param incident_ids Iterable of incident ids to refresh
 def recalculate_priority_for_incidents(incident_ids):
     if not incident_ids:
         return
@@ -225,8 +227,7 @@ def recalculate_priority_for_incidents(incident_ids):
     print(f"Priority recalculat pentru {len(incidents_data)} incidente.")
 
 
-# functie care returneaza un dictionar {site_id: incident_id} pentru toate site-urile
-# care au cel putin un incident activ atasat prin tabela incident_alarms
+# Returns a dict {site_id: incident_id} for every site that has at least one active incident attached through incident_alarms
 def get_active_site_to_incident():
     active = supabase.table("incidents").select("incident_id").eq("status", 1).execute().data
     active_ids = [row["incident_id"] for row in active]
@@ -252,20 +253,19 @@ def get_active_site_to_incident():
     return site_to_incident
 
 
-# functie care insereaza in batch o lista de legaturi {incident_id, alarm_id, created_at}
-# in tabela incident_alarms, generand id unic pentru fiecare legatura
+# Inserts a batch of {incident_id, alarm_id, created_at} links into the incident_alarms table
+# @param links List of link dicts to insert
 def insert_incident_alarms(links):
     if not links:
         return
     supabase.table("incident_alarms").insert(links).execute()
 
 
-# functie care creeaza alarme noi in functie de sites
-# se atribuie un id random unic, status, info, site_id, tehnologie si data de inceput a alarmei care este in ultimele 5 minute
-# daca statusul este 0 (nu mai este activa alarma), atunci se atribuie si o data de rezolvare in ultimele 5 minute
-# daca site-ul are deja un incident activ, alarma se ataseaza la acel incident prin incident_alarms
-# se da update la baza de date
-# dupa atasare, recalculeaza priority pentru incidentele care au primit alarme noi
+# Creates new alarms tied to random sites
+# Each alarm gets a status, info, site_id, technology and a start time within the last 5 minutes
+# If the status is 0 (no longer active), a resolved time within the last 5 minutes is also set
+# If the chosen site already has an active incident, the alarm is attached to it through incident_alarms
+# After the inserts, priority is recalculated for the incidents that received new alarms
 def deploy_new_alarms():
     site_id = [row["id"] for row in supabase.table("site").select("id").execute().data]
     print(f"Site-uri incarcate: {len(site_id)}")
@@ -294,7 +294,7 @@ def deploy_new_alarms():
                 this_cancel_time_datetime = datetime.now(timezone.utc)
 
         alarms_to_insert.append({
-            # NO alarm_id — Postgres will assign it
+            # No alarm_id — Postgres will assign it
             "status": alarm_status,
             "start_time": this_alarm_datetime.isoformat(),
             "resolved_time": this_cancel_time_datetime.isoformat() if this_cancel_time_datetime else None,
