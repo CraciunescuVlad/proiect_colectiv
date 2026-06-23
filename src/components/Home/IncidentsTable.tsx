@@ -30,7 +30,6 @@ const technologyColors: Record<string, { text: string; bg: string; border: strin
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
 
 const selectClass = "bg-white/5 border border-white/10 text-white/60 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-white/30 h-7";
-const inputClass = "bg-white/5 border border-white/10 text-white/60 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-white/30 h-7 w-full";
 
 const AssignedEmail = ({ userId }: { userId: string }) => {
     const [email, setEmail] = useState<string | null>(null);

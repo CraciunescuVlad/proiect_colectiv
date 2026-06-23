@@ -7,7 +7,12 @@ export type ViewerKpis = {
     resolvedCount: number;
 };
 
-// Fetches the 3 viewer KPIs (avg resolution, assigned count, resolved count) for the selected range
+/**
+ * Pulls the 3 viewer KPIs (avg resolution time, assigned count, resolved count) for a given profile and date range
+ * @param assignedTo The viewer profile id to fetch KPIs for, or null to skip the request
+ * @param from Optional start of the date range
+ * @param to Optional end of the date range
+ */
 const useViewerKpis = (assignedTo: string | null, from?: Date, to?: Date) => {
     const [kpis, setKpis] = useState<ViewerKpis | null>(null);
     const [loading, setLoading] = useState(false);

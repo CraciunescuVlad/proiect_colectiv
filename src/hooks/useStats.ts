@@ -10,7 +10,7 @@ interface Stats {
     totalIncidents: number;
     criticalCount: number;
 }
-
+/** Fetches dashboard stats from the backend, exposing the result alongside loading and error state */
 const useStats = () => {
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);

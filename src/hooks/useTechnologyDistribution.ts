@@ -6,8 +6,14 @@ type PiePoint = {
     value: number;
 };
 
-// Fetches a name/value distribution from a given endpoint
-// Optionally filtered by site
+/**
+ * Pulls a name/value distribution from the given endpoint, with optional date range, site and assignee filters
+ * @param endpoint The statistics endpoint to hit, appended to the backend URL
+ * @param from Optional start of the date range
+ * @param to Optional end of the date range
+ * @param siteIds Optional list of site ids to narrow the results
+ * @param assignedTo Optional profile id to filter by who the items are assigned to
+ */
 const useTechnologyDistribution = (endpoint: string, from?: Date, to?: Date, siteIds?: string[] | null, assignedTo?: string | null) => {
     const [data, setData] = useState<PiePoint[]>([]);
     const [loading, setLoading] = useState(true);

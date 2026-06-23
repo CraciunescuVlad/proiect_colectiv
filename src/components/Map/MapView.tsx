@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { authHeaders } from "../../lib/apiHeaders";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import type { Alarm, Site, Incident } from "./MapPage";
+import type { Alarm, Site } from "./MapPage";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -10,7 +10,6 @@ interface MapViewProps {
     view: string;
     sites: Site[];
     standalone_alarms: Alarm[];
-    incidents: Incident[];
     incidentSites: Set<string>;
     onMarkerClick: (siteId: string) => void;
     selectedTechs: string[];
@@ -30,7 +29,7 @@ declare global {
 }
 
 
-const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onMarkerClick , selectedTechs, availableTechs, onTechFilter, filter}: MapViewProps) => {
+const MapView = ({ view, sites, standalone_alarms, incidentSites, onMarkerClick , selectedTechs, availableTechs, onTechFilter, filter}: MapViewProps) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
 
@@ -124,7 +123,7 @@ const MapView = ({ view, sites, standalone_alarms, incidents, incidentSites, onM
         return () => {
             markersRef.current.forEach(m => m.remove());
         };
-    }, [sites, standalone_alarms, incidents, incidentSites, selectedTechs, filter]);
+    }, [sites, standalone_alarms, incidentSites, selectedTechs, filter]);
     useEffect(() => {
         setTimeout(() => map.current?.resize(), 300);
     }, [view]);

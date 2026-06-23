@@ -33,17 +33,17 @@ interface Message {
 }
 
 const priorityColors: Record<string, { text: string; bg: string; border: string }> = {
-    Critical: { text: "text-red-400",    bg: "bg-red-500/10",    border: "border-red-500/20" },
-    Major:    { text: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
-    Minor:    { text: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
-    Warning:  { text: "text-blue-400",   bg: "bg-blue-500/10",   border: "border-blue-500/20" },
+    Critical: { text: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
+    Major: { text: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20" },
+    Minor: { text: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+    Warning: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
 };
 
 const technologyColors: Record<string, { text: string; bg: string; border: string }> = {
-    "2G": { text: "text-green-400",  bg: "bg-green-500/10",  border: "border-green-500/20" },
-    "3G": { text: "text-blue-400",   bg: "bg-blue-500/10",   border: "border-blue-500/20" },
+    "2G": { text: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
+    "3G": { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
     "4G": { text: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
-    "5G": { text: "text-red-400",    bg: "bg-red-500/10",    border: "border-red-500/20" },
+    "5G": { text: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
 };
 
 const AssignedEmail = ({ userId }: { userId: string }) => {
@@ -370,11 +370,10 @@ const IncidentPage = () => {
                     <span className={`text-xs px-3 py-1 rounded-full border ${priority.bg} ${priority.text} ${priority.border}`}>
                         {incident.priority}
                     </span>
-                    <span className={`text-xs px-3 py-1 rounded-full border ${
-                        incident.status === 1
+                    <span className={`text-xs px-3 py-1 rounded-full border ${incident.status === 1
                             ? "bg-red-500/10 text-red-400 border-red-500/20"
                             : "bg-green-500/10 text-green-400 border-green-500/20"
-                    }`}>
+                        }`}>
                         {incident.status === 1 ? "Active" : "Resolved"}
                     </span>
                 </div>
@@ -621,22 +620,27 @@ const IncidentPage = () => {
                                     {/* Mode toggle */}
                                     <div className="flex rounded-lg overflow-hidden border border-white/10 text-xs">
                                         {user?.role === "admin" ? (
-                                            <><button
+                                            <>
+                                                <button
                                                     onClick={() => setReportMode("user")}
-                                                    className={`flex-1 py-1.5 transition-colors ${reportMode === "user" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
+                                                    className={`flex-1 py-1.5 transition-colors ${reportMode === "user"
+                                                            ? "bg-white/10 text-white"
+                                                            : "bg-transparent text-white/40 hover:text-white/70"
+                                                        }`}
                                                 >
                                                     Select user
-                                                </button><button
+                                                </button>
+                                                <button
                                                     onClick={() => setReportMode("email")}
-                                                    className={`flex-1 py-1.5 transition-colors ${reportMode === "email" ? "bg-white/10 text-white" : "bg-transparent text-white/40 hover:text-white/70"}`}
+                                                    className={`flex-1 py-1.5 transition-colors ${reportMode === "email"
+                                                            ? "bg-white/10 text-white"
+                                                            : "bg-transparent text-white/40 hover:text-white/70"
+                                                        }`}
                                                 >
-                                                        Custom email
-                                                    </button></>
-                                        ): (<button
-                                            onClick={() => setReportMode("email")}                                        >
-                                            
-                                        </button>)}
-                                        
+                                                    Custom email
+                                                </button>
+                                            </>
+                                        ) : null}
                                     </div>
 
                                     {reportMode === "user" ? (

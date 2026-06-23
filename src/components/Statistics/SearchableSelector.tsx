@@ -26,9 +26,12 @@ type CommonProps<T> = {
 
 type Props<T> = CommonProps<T> & (SingleProps<T> | MultiProps);
 
-// Generic autocomplete search box used to filter pages by one or more items
-// Caller controls both the data shape and how each item maps to an id and a display label
-// When multiple=true, selection is an array and the input is used purely as a search field
+/**
+ * Generic autocomplete search box used to filter pages by one or more items
+ * Caller controls both the data shape and how each item maps to an id and a display label
+ * When multiple=true, selection is an array and the input is used purely as a search field
+ * @param props Component props, either in single or multi selection mode
+ */
 const SearchableSelector = <T,>(props: Props<T>) => {
     const {
         items,
@@ -48,7 +51,7 @@ const SearchableSelector = <T,>(props: Props<T>) => {
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Look up the label matching the currently selected id (single mode only)
+    /** Look up the label matching the currently selected id (single mode only) */
     const selectedLabel = useMemo(() => {
         if (isMulti) {
             return "";
@@ -64,7 +67,7 @@ const SearchableSelector = <T,>(props: Props<T>) => {
         return getLabel(match);
     }, [isMulti, props, items, getId, getLabel]);
 
-    // Keep the input text in sync with the selection (single mode only)
+    /** Keep the input text in sync with the selection (single mode only) */
     useEffect(() => {
         if (isMulti) {
             return;
@@ -77,7 +80,7 @@ const SearchableSelector = <T,>(props: Props<T>) => {
         setQuery(selectedLabel);
     }, [isMulti, props, selectedLabel]);
 
-    // Close the dropdown when clicking outside the component
+    /** Close the dropdown when clicking outside the component */
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -88,7 +91,7 @@ const SearchableSelector = <T,>(props: Props<T>) => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Filter items by substring match on the label (case-insensitive)
+    /** Filter items by substring match on the label (case-insensitive) */
     const filteredItems = useMemo(() => {
         const q = query.trim().toLowerCase();
         if (q === "") {
@@ -99,6 +102,10 @@ const SearchableSelector = <T,>(props: Props<T>) => {
             .slice(0, 50);
     }, [query, items, getLabel]);
 
+    /**
+     * Handles selection of an item, toggling it in multi mode or setting it in single mode
+     * @param item The item that was clicked
+     */
     const handleSelect = (item: T) => {
         const id = getId(item);
 
@@ -119,6 +126,7 @@ const SearchableSelector = <T,>(props: Props<T>) => {
         setOpen(false);
     };
 
+    /** Clears the current selection and resets the input */
     const handleClear = () => {
         if (isMulti) {
             const multiProps = props as CommonProps<T> & MultiProps;
@@ -131,7 +139,7 @@ const SearchableSelector = <T,>(props: Props<T>) => {
         setOpen(false);
     };
 
-    // Decide whether to show the clear (×) button
+    // Decide whether to show the clear button
     let hasSelection = false;
     if (isMulti) {
         hasSelection = (props as CommonProps<T> & MultiProps).selectedIds.length > 0;
@@ -139,7 +147,10 @@ const SearchableSelector = <T,>(props: Props<T>) => {
         hasSelection = (props as CommonProps<T> & SingleProps<T>).selectedId !== null;
     }
 
-    // Highlights items already selected in multi mode
+    /**
+     * Checks whether an item is part of the current selection (multi mode only)
+     * @param item The item to check
+     */
     const isItemSelected = (item: T): boolean => {
         if (!isMulti) {
             return false;

@@ -175,7 +175,6 @@ const MapPage = () => {
                             view={view}
                             sites={filteredSites}
                             standalone_alarms={standaloneAlarms}
-                            incidents={incidents}
                             incidentSites={incidentSites}
                             onMarkerClick={handleMarkerClick}
                             selectedTechs={selectedTechs}

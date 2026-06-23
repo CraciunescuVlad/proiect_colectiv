@@ -1,23 +1,3 @@
-// import IncidentCard from "./IncidentCard";
-// import  type { Site } from "./MapPage";
-//
-// const IncidentList = ({ sites }: { sites: Site[] }) => {
-//     return (
-//         <div className="overflow-y-auto flex flex-col gap-3 h-full">
-//             {sites.map((site) => (
-//                 <IncidentCard
-//                     key={site.id}
-//                     id={site.id}
-//                     title={site.city}
-//                     description={site.address}
-//                 />
-//             ))}
-//         </div>
-//     );
-// };
-//
-// export default IncidentList;
-
 import type { Site, Incident, Alarm } from "./MapPage";
 
 interface IncidentListProps {
@@ -30,10 +10,10 @@ interface IncidentListProps {
 }
 
 const priorityColors: Record<string, { text: string; bg: string; border: string; dot: string }> = {
-    Critical: { text: "text-red-400",    bg: "bg-red-500/10",    border: "border-red-500/20",    dot: "bg-red-400" },
-    Major:    { text: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", dot: "bg-orange-400" },
-    Minor:    { text: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20", dot: "bg-yellow-400" },
-    Warning:  { text: "text-blue-400",   bg: "bg-blue-500/10",   border: "border-blue-500/20",   dot: "bg-blue-400" },
+    Critical: { text: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", dot: "bg-red-400" },
+    Major: { text: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", dot: "bg-orange-400" },
+    Minor: { text: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20", dot: "bg-yellow-400" },
+    Warning: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", dot: "bg-blue-400" },
 };
 
 const IncidentList = ({ sites, incidents, standaloneAlarms, incidentSites, onSiteClick, filter }: IncidentListProps) => {
@@ -47,8 +27,8 @@ const IncidentList = ({ sites, incidents, standaloneAlarms, incidentSites, onSit
     );
 
     const showIncidents = filter === "all" || filter === "incidents";
-    const showAlarms    = filter === "all" || filter === "alarms";
-    const showNormal    = filter === "all" || filter === "normal";
+    const showAlarms = filter === "all" || filter === "alarms";
+    const showNormal = filter === "all" || filter === "normal";
 
     const SectionHeader = ({ label, count, color }: { label: string; count: number; color: string }) => (
         <div className="flex items-center gap-2 px-1 mb-2 mt-4 first:mt-0">
@@ -79,8 +59,8 @@ const IncidentList = ({ sites, incidents, standaloneAlarms, incidentSites, onSit
                                         <span className="text-white font-medium text-sm">{site.city}</span>
                                         {priority && (
                                             <span className={`text-xs px-2 py-0.5 rounded-full border ${priority.bg} ${priority.text} ${priority.border}`}>
-                                            {incident?.priority}
-                                        </span>
+                                                {incident?.priority}
+                                            </span>
                                         )}
                                     </div>
                                     <p className="text-white/40 text-xs">{site.address}</p>
@@ -108,8 +88,8 @@ const IncidentList = ({ sites, incidents, standaloneAlarms, incidentSites, onSit
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="text-white font-medium text-sm">{site.city}</span>
                                         <span className="text-xs px-2 py-0.5 rounded-full border bg-purple-500/10 text-purple-400 border-purple-500/20">
-                                        {siteAlarms.length} alarm{siteAlarms.length > 1 ? "s" : ""}
-                                    </span>
+                                            {siteAlarms.length} alarm{siteAlarms.length > 1 ? "s" : ""}
+                                        </span>
                                     </div>
                                     <p className="text-white/40 text-xs">{site.address}</p>
                                     <p className="text-white/20 text-xs mt-1">ID: {site.id}</p>
@@ -144,17 +124,20 @@ const IncidentList = ({ sites, incidents, standaloneAlarms, incidentSites, onSit
             )}
 
             {/* Empty state */}
-            {!showIncidents && !showAlarms && !showNormal ||
-            (showIncidents && incidentSitesList.length === 0 &&
-                showAlarms && alarmSitesList.length === 0 &&
-                showNormal && normalSitesList.length === 0) ? null :
-                (!showIncidents || incidentSitesList.length === 0) &&
-                (!showAlarms || alarmSitesList.length === 0) &&
-                (!showNormal || normalSitesList.length === 0) ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-2">
-                        <span className="text-white/20 text-sm">No sites found</span>
-                    </div>
-                ) : null}
+            {
+                (!showIncidents && !showAlarms && !showNormal)
+                    ? null
+                    : (
+                        (!showIncidents || incidentSitesList.length === 0) &&
+                        (!showAlarms || alarmSitesList.length === 0) &&
+                        (!showNormal || normalSitesList.length === 0)
+                    ) ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-2">
+                            <span className="text-white/20 text-sm">No sites found</span>
+                        </div>
+                    ) : null
+            }
+
 
         </div>
     );

@@ -9,7 +9,6 @@ import cron from "node-cron";
 import { exec } from "child_process";
 import createDashboardRouter from "./routes/dashboard";
 import createMapRouter from "./routes/map";
-//import createUsersRouter from "./routes/users";
 import createStatisticsRouter from "./routes/statistics";
 import { requireAdmin, requireAuth } from "./middleware/auth";
 import crypto from "crypto";
@@ -196,12 +195,12 @@ app.use("/statistics", requireAuth, createStatisticsRouter(supabase));
 
 
 const runScript = () => {
-  exec("py ../script_alarme/alarmeDB.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
+  exec("py ../script_generate/alarms.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
     if (error) { console.error("Script error:", error.message); return; }
     if (stdout) console.log(stdout);
     if (stderr) console.error(stderr);
     
-    exec("py ../script_alarme/incidente.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
+    exec("py ../script_generate/incidents.py", { cwd: process.cwd() }, (error, stdout, stderr) => {
       if (error) { console.error("Script error:", error.message); return; }
       if (stdout) console.log(stdout);
       if (stderr) console.error(stderr);
@@ -480,7 +479,6 @@ app.get("/sites", requireAuth, async (req: Request, res: Response) => {
 })
 
 
-// GET toate alarmele
 app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
     const { all } = req.query;
 
@@ -524,7 +522,6 @@ app.get("/alarms", requireAuth, async (req: Request, res: Response) => {
 
 
 
-// GET toate incidentele
 app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
     const { status } = req.query;
     const isAdmin = req.user!.role === "admin";
@@ -567,7 +564,6 @@ app.get("/incidents", requireAuth, async (req: Request, res: Response) => {
     res.json((data ?? []).map((i: any) => ({ ...i, alarm_ids: alarmsByIncident[i.incident_id] ?? [] })));
 });
 
-//incidente active
 
 app.patch("/incidents/:id/assign", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     const { id } = req.params;

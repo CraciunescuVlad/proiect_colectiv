@@ -8,7 +8,6 @@ import MapPage from "../components/Map/MapPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Statistics from "../components/Statistics/Statistics";
 import Signup from "../components/Signup/Signup";
-import incidentRoute from "./incident";
 import IncidentPage from "../components/Incident/IncidentPage.tsx";
 import AdminRequestsPage from "../components/AdminRequests/AdminRequestsPage.tsx";
 import ProfilePage from "../components/Profile/ProfilePage.tsx";
