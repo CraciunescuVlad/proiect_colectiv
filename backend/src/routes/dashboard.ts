@@ -6,25 +6,31 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
     router.get("/alarms/chart", async (req: Request, res: Response) => {
-        const { data, error } = await supabase
-            .from("alarms")
-            .select("start_time")
-            .gte("start_time", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-        if (error) {
+        const { data, error } = await fetchAll<{ start_time: string }>((from, to) =>
+            supabase
+                .from("alarms")
+                .select("start_time")
+                .gte("start_time", since)
+                .order("alarm_id", { ascending: true })
+                .range(from, to)
+        );
+
+        if (error || !data) {
             console.error(error);
-            res.status(500).json({ message: "Something went wrong." })
-            return
+            res.status(500).json({ message: "Something went wrong." });
+            return;
         }
 
-        const grouped: Record<string, number> = {}
+        const grouped: Record<string, number> = {};
         data.forEach((alarm: any) => {
             const date = new Date(alarm.start_time).toLocaleDateString("ro-RO", {
                 day: "2-digit",
                 month: "2-digit",
-            })
-            grouped[date] = (grouped[date] || 0) + 1
-        })
+            });
+            grouped[date] = (grouped[date] || 0) + 1;
+        });
 
         const result = Object.entries(grouped)
             .map(([date, value]) => ({ date, value }))
@@ -33,31 +39,37 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
                 const [dayB, monthB] = b.date.split(".").map(Number);
                 if (monthA !== monthB) return monthA - monthB;
                 return dayA - dayB;
-            })
+            });
 
-        res.json(result)
-    })
+        res.json(result);
+    });
 
     router.get("/incidents/chart", async (req: Request, res: Response) => {
-        const { data, error } = await supabase
-            .from("incidents")
-            .select("start_time")
-            .gte("start_time", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-        if (error) {
+        const { data, error } = await fetchAll<{ start_time: string }>((from, to) =>
+            supabase
+                .from("incidents")
+                .select("start_time")
+                .gte("start_time", since)
+                .order("incident_id", { ascending: true })
+                .range(from, to)
+        );
+
+        if (error || !data) {
             console.error(error);
-            res.status(500).json({ message: "Something went wrong." })
-            return
+            res.status(500).json({ message: "Something went wrong." });
+            return;
         }
 
-        const grouped: Record<string, number> = {}
+        const grouped: Record<string, number> = {};
         data.forEach((incident: any) => {
             const date = new Date(incident.start_time).toLocaleDateString("ro-RO", {
                 day: "2-digit",
                 month: "2-digit",
-            })
-            grouped[date] = (grouped[date] || 0) + 1
-        })
+            });
+            grouped[date] = (grouped[date] || 0) + 1;
+        });
 
         const result = Object.entries(grouped)
             .map(([date, value]) => ({ date, value }))
@@ -66,11 +78,10 @@ const createDashboardRouter = (supabase: SupabaseClient) => {
                 const [dayB, monthB] = b.date.split(".").map(Number);
                 if (monthA !== monthB) return monthA - monthB;
                 return dayA - dayB;
-            })
+            });
 
-        res.json(result)
-    })
-
+        res.json(result);
+    });
     router.get("/stats", async (req: Request, res: Response) => {
         const { count: total } = await supabase
             .from("alarms")
