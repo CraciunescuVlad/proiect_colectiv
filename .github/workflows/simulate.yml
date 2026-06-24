@@ -2,7 +2,7 @@ name: Simulate alarms & incidents
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -27,10 +27,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python script_alarme/alarmeDB.py
+        run: python script_generate/alarms.py
 
       - name: Run incidente
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python script_alarme/incidente.py
+        run: python script_generate/incidents.py
