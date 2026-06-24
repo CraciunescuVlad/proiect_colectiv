@@ -5,6 +5,7 @@ import createProfilesRouter from "./profiles";
 import createIncidentsRouter from "./incidents";
 import createAlarmsRouter from "./alarms";
 import createKpisRouter from "./kpis";
+import { requireAuth } from "../../middleware/auth";
 
 /**
  * Builds the Express router exposing all statistics endpoints.
@@ -16,7 +17,8 @@ import createKpisRouter from "./kpis";
 const createStatisticsRouter = (supabase: SupabaseClient) => {
     const router = Router();
 
-
+    router.use(requireAuth);
+    
     router.use(createSitesRouter(supabase));
     router.use(createProfilesRouter(supabase));
     router.use(createIncidentsRouter(supabase));
